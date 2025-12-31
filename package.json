@@ -100,7 +100,7 @@
       },
       {
         "command": "dbServices.testConnection",
-        "title": "Test Connection",
+        "title": "DB Services: Test Connection",
         "icon": "$(pulse)"
       },
       {

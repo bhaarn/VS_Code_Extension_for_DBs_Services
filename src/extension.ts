@@ -65,8 +65,29 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('dbServices.testConnection', async (item) => {
             try {
-                await connectionManager.testConnectionHealth(item.config.id);
-                connectionExplorer.refresh();
+                // If called from command palette, prompt for connection
+                if (!item) {
+                    const connections = connectionManager.getAllConnections();
+                    if (connections.length === 0) {
+                        vscode.window.showWarningMessage('No connections available to test');
+                        return;
+                    }
+                    
+                    const connectionNames = connections.map(c => ({ label: c.name, id: c.id }));
+                    const selected = await vscode.window.showQuickPick(connectionNames, {
+                        placeHolder: 'Select a connection to test'
+                    });
+                    
+                    if (!selected) {
+                        return;
+                    }
+                    
+                    await connectionManager.testConnectionHealth(selected.id);
+                    connectionExplorer.refresh();
+                } else {
+                    await connectionManager.testConnectionHealth(item.config.id);
+                    connectionExplorer.refresh();
+                }
             } catch (error) {
                 // Error already shown by ConnectionManager
             }
