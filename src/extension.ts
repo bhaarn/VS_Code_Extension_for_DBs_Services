@@ -2,8 +2,12 @@ import * as vscode from 'vscode';
 import { ConnectionExplorer } from './views/connectionExplorer';
 import { QueryHistory } from './views/queryHistory';
 import { SavedQueries } from './views/savedQueries';
+import { TableGridView } from './views/tableGridView';
 import { ConnectionManager } from './core/connectionManager';
 import { SecretManager } from './core/secretManager';
+
+// Global reference for cleanup
+let globalConnectionManager: ConnectionManager | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Database & Services Manager is now active!');
@@ -11,11 +15,13 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize core services
     const secretManager = new SecretManager(context);
     const connectionManager = new ConnectionManager(secretManager, context);
+    globalConnectionManager = connectionManager;
 
     // Initialize views
     const connectionExplorer = new ConnectionExplorer(context, connectionManager);
     const queryHistory = new QueryHistory(context, connectionManager, connectionExplorer);
     const savedQueries = new SavedQueries(context, connectionManager, connectionExplorer);
+    const tableGridView = new TableGridView(connectionManager);
     
     // Register tree views
     vscode.window.registerTreeDataProvider('dbServicesExplorer', connectionExplorer);
@@ -47,6 +53,17 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('dbServices.connect', async (item) => {
             await connectionExplorer.connect(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.testConnection', async (item) => {
+            try {
+                await connectionManager.testConnectionHealth(item.config.id);
+                connectionExplorer.refresh();
+            } catch (error) {
+                // Error already shown by ConnectionManager
+            }
         })
     );
 
@@ -101,6 +118,14 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('dbServices.runSQLScript', async (item) => {
             await connectionExplorer.runSQLScript(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.openTableGrid', async (item) => {
+            const tableName = item.label;
+            const database = item.config.database;
+            await tableGridView.showTable(item.config.id, tableName, database);
         })
     );
 
@@ -805,6 +830,11 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-    // Cleanup connections
+    // Cleanup connections and SSH tunnels
     console.log('Database & Services Manager is deactivating...');
+    if (globalConnectionManager) {
+        globalConnectionManager.dispose().catch(err => {
+            console.error('Error during cleanup:', err);
+        });
+    }
 }

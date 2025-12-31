@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { SecretManager } from './secretManager';
 import { ConnectionConfig, ConnectionStatus, ConnectionType, ConnectionGroup, ConnectionMetadata } from './types';
 import { IConnectionProvider } from '../providers/base';
+import { TunnelManager } from './tunnelManager';
 
 /**
  * Central connection manager
@@ -15,10 +16,12 @@ export class ConnectionManager {
     private context: vscode.ExtensionContext;
     private groups: Map<string, ConnectionGroup> = new Map();
     private metadata: Map<string, ConnectionMetadata> = new Map();
+    private tunnelManager: TunnelManager;
 
     constructor(secretManager: SecretManager, context: vscode.ExtensionContext) {
         this.secretManager = secretManager;
         this.context = context;
+        this.tunnelManager = new TunnelManager(secretManager);
         this.loadConnections();
         this.loadGroups();
         this.loadMetadata();
@@ -211,8 +214,34 @@ export class ConnectionManager {
                 throw new Error('No credentials found. Please edit connection and re-enter credentials.');
             }
 
+            // Establish SSH tunnel if configured
+            let actualConfig = config;
+            if (config.sshTunnel?.enabled) {
+                const sshCredentials = credentials.sshCredentials || {};
+                const localPort = await this.tunnelManager.createTunnel(
+                    connectionId,
+                    {
+                        sshHost: config.sshTunnel.host,
+                        sshPort: config.sshTunnel.port,
+                        sshUsername: config.sshTunnel.username,
+                        targetHost: config.host || 'localhost',
+                        targetPort: config.port || 5432
+                    },
+                    sshCredentials
+                );
+
+                // Modify config to connect through tunnel
+                actualConfig = {
+                    ...config,
+                    host: 'localhost',
+                    port: localPort
+                };
+
+                console.log(`Connecting through SSH tunnel on localhost:${localPort}`);
+            }
+
             // Connect using provider
-            await provider.connect(config, credentials);
+            await provider.connect(actualConfig, credentials);
 
             // Update status
             this.connectionStatus.set(connectionId, {
@@ -221,8 +250,14 @@ export class ConnectionManager {
                 lastConnected: new Date()
             });
 
-            vscode.window.showInformationMessage(`Connected to "${config.name}"`);
+            const tunnelInfo = config.sshTunnel?.enabled ? ' (via SSH tunnel)' : '';
+            vscode.window.showInformationMessage(`Connected to "${config.name}"${tunnelInfo}`);
         } catch (error: any) {
+            // Clean up tunnel if connection failed
+            if (config.sshTunnel?.enabled) {
+                await this.tunnelManager.closeTunnel(connectionId);
+            }
+
             this.connectionStatus.set(connectionId, {
                 id: connectionId,
                 connected: false,
@@ -245,6 +280,11 @@ export class ConnectionManager {
         const provider = await this.getProvider(config.type);
         if (provider && this.isConnected(connectionId)) {
             await provider.disconnect(connectionId);
+        }
+
+        // Close SSH tunnel if exists
+        if (config.sshTunnel?.enabled) {
+            await this.tunnelManager.closeTunnel(connectionId);
         }
 
         this.connectionStatus.set(connectionId, {
@@ -575,5 +615,102 @@ export class ConnectionManager {
             }
         });
         return ungrouped;
+    }
+
+    /**
+     * Get tunnel status for a connection
+     */
+    getTunnelStatus(connectionId: string) {
+        return this.tunnelManager.getTunnelStatus(connectionId);
+    }
+
+    /**
+     * Check if connection uses SSH tunnel
+     */
+    hasTunnel(connectionId: string): boolean {
+        const config = this.connections.get(connectionId);
+        return config?.sshTunnel?.enabled === true;
+    }
+
+    /**
+     * Test connection health without connecting
+     */
+    async testConnectionHealth(connectionId: string): Promise<void> {
+        const config = this.connections.get(connectionId);
+        if (!config) {
+            throw new Error(`Connection ${connectionId} not found`);
+        }
+
+        const provider = await this.getProvider(config.type);
+        if (!provider) {
+            throw new Error(`Provider for ${config.type} not available`);
+        }
+
+        const startTime = Date.now();
+        try {
+            const credentials = await this.secretManager.getCredentials(connectionId);
+            if (!credentials) {
+                throw new Error('No credentials found');
+            }
+
+            const isHealthy = await provider.testConnection(config, credentials);
+            const responseTime = Date.now() - startTime;
+
+            if (isHealthy) {
+                this.connectionStatus.set(connectionId, {
+                    id: connectionId,
+                    connected: this.isConnected(connectionId),
+                    health: {
+                        status: 'online',
+                        lastCheck: new Date(),
+                        responseTime,
+                        message: 'Connection healthy'
+                    }
+                });
+            } else {
+                throw new Error('Connection test failed');
+            }
+
+            vscode.window.showInformationMessage(`Connection healthy (${responseTime}ms)`);
+        } catch (error: any) {
+            const responseTime = Date.now() - startTime;
+            this.connectionStatus.set(connectionId, {
+                id: connectionId,
+                connected: this.isConnected(connectionId),
+                health: {
+                    status: 'offline',
+                    lastCheck: new Date(),
+                    responseTime,
+                    message: error.message
+                }
+            });
+            vscode.window.showErrorMessage(`Connection test failed: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get health status for UI display
+     */
+    getHealthStatus(connectionId: string): 'online' | 'offline' | 'warning' | 'unknown' {
+        const status = this.connectionStatus.get(connectionId);
+        return status?.health?.status || 'unknown';
+    }
+
+    /**
+     * Cleanup on deactivation
+     */
+    async dispose(): Promise<void> {
+        // Close all active tunnels
+        await this.tunnelManager.closeAllTunnels();
+        
+        // Disconnect all connections
+        const disconnectPromises = Array.from(this.connections.keys())
+            .filter(id => this.isConnected(id))
+            .map(id => this.disconnect(id).catch(err => 
+                console.error(`Error disconnecting ${id}:`, err)
+            ));
+        
+        await Promise.all(disconnectPromises);
     }
 }

@@ -42,6 +42,12 @@ export interface ConnectionStatus {
     connected: boolean;
     lastConnected?: Date;
     error?: string;
+    health?: {
+        status: 'online' | 'offline' | 'warning' | 'unknown';
+        lastCheck?: Date;
+        responseTime?: number;
+        message?: string;
+    };
 }
 
 export interface QueryHistoryEntry {

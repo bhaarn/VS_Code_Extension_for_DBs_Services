@@ -2,6 +2,40 @@
 
 All notable changes to the "Database & Services Manager" extension will be documented in this file.
 
+## [2.0.0] - 2025-12-31
+
+### Added - Phase 3B Features
+- **SSH Tunneling for Databases**: Secure database connections through bastion/jump hosts
+  - Configure SSH tunnel (host, port, username) for PostgreSQL, MySQL, MariaDB, MongoDB
+  - Password or private key authentication
+  - Automatic tunnel establishment and cleanup
+  - Tunnel status indicators in UI
+  - Supports database connections through secure SSH tunnels
+  
+- **Table Data Grid View**: Spreadsheet-like interface for table data
+  - View table data in interactive grid with pagination
+  - Edit cells inline with auto-save
+  - Insert new rows with form-based input
+  - Delete rows with confirmation
+  - Support for PostgreSQL, MySQL, MariaDB, SQLite, MongoDB collections
+  - Configurable page size (default: 50 rows)
+  - Total row count display
+  - Available for both SQL tables and MongoDB collections
+  
+- **Connection Health Monitoring**: Test connection status and health
+  - "Test Connection" command for all connections
+  - Health status indicators (online/offline/warning/unknown)
+  - Response time tracking (milliseconds)
+  - Health status visible in connection tooltips
+  - Manual health checks without establishing permanent connections
+  - Last check timestamp tracking
+
+### Improvements
+- Enhanced connection tooltips with tunnel and health information
+- Better error handling for connection operations
+- Improved TypeScript type safety
+- Extension cleanup on deactivation (closes tunnels and connections)
+
 ## [1.1.0] - 2025-12-31
 
 ### Added

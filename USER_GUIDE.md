@@ -1370,22 +1370,239 @@ Contributions are welcome! Please:
 
 ## Version History
 
-### Current Version (1.1.0)
-- ✅ 15+ service providers
-- ✅ Secure credential storage
-- ✅ Tree view with expandable categories
-- ✅ Script execution for databases
+### Current Version (2.0.0)
+- ✅ 15+ service providers (PostgreSQL, MySQL, MariaDB, MongoDB, Neo4j, SQLite, Redis, RabbitMQ, Kafka, BullMQ, Docker, Elasticsearch, SSH, FTP, SFTP)
+- ✅ Secure credential storage with OS-level encryption
+- ✅ Tree view with expandable categories and connection management
+- ✅ Script execution for all database types
 - ✅ File transfer for FTP/SFTP
-- ✅ Neo4J graph visualization
-- ✅ Docker and Elasticsearch support
-- ✅ Query history (last 100 queries)
+- ✅ Neo4J graph visualization with vis-network
+- ✅ Docker and Elasticsearch full support
+- ✅ Query history (last 100 queries with re-run capability)
 - ✅ Saved queries with folder organization
-- ✅ Export/Import connections
-- ✅ Query execution timing
+- ✅ Export/Import connections with password encryption
+- ✅ Query execution timing (millisecond precision)
 - ✅ Query result export (CSV, JSON, Excel)
 - ✅ Connection groups and favorites
 - ✅ Query templates and snippets (10 pre-built + 15 VS Code snippets)
-- ✅ Advanced Docker operations (start/stop/restart/remove containers/images/volumes/networks)
+- ✅ Advanced Docker operations (full container/image/volume/network lifecycle)
+- ✅ **SSH Tunneling for Databases** - Connect through bastion/jump hosts (v2.0)
+- ✅ **Table Data Grid View** - Spreadsheet-like interface for data editing (v2.0)
+- ✅ **Connection Health Monitoring** - Test connections and view health status (v2.0)
+
+### Previous Version (1.1.0)
+- Query history and saved queries
+- Export/Import connections
+- Query execution timing
+- Query result export (CSV, JSON, Excel)
+- Connection groups and favorites
+- Query templates and snippets
+- Advanced Docker operations
+
+### Future Enhancements (Based on User Feedback)
+- Automatic SSH tunnel health monitoring with auto-reconnect
+- Advanced table grid features (sorting, filtering, search)
+- Periodic connection health checks (configurable interval)
+- Automatic query formatting (sql-formatter integration)
+- RabbitMQ Management API integration
+- Direct file editing for FTP/SFTP
+- Database schema comparison tools
+- Query performance profiling (EXPLAIN integration)
+- Multi-connection query execution
+
+---
+
+## SSH Tunneling
+
+### Overview
+Connect to remote databases securely through SSH bastion/jump hosts. Ideal for accessing databases in private networks or behind firewalls.
+
+### Supported Databases
+- PostgreSQL
+- MySQL
+- MariaDB
+- MongoDB
+
+### How to Configure
+
+**When Adding/Editing a Connection:**
+
+1. After entering database connection details, you'll be prompted for SSH tunnel configuration
+2. Select "Configure SSH Tunnel"
+3. Enter SSH tunnel details:
+   - **SSH Host**: Bastion/jump server hostname (e.g., `bastion.example.com`)
+   - **SSH Port**: SSH port (default: 22)
+   - **SSH Username**: Username for SSH authentication
+   - **Authentication Method**:
+     - **Password**: Enter SSH password
+     - **Private Key**: Select SSH private key file (`.pem`, `.key`)
+
+**Example Configuration:**
+
+```
+Database Host: db.internal.company.com
+Database Port: 5432
+SSH Tunnel Host: bastion.company.com
+SSH Tunnel Port: 22
+SSH Username: admin
+Authentication: Private Key (/Users/you/.ssh/id_rsa)
+```
+
+### How It Works
+
+1. Extension establishes SSH tunnel to bastion host
+2. Tunnel forwards local port to remote database
+3. Database connection uses localhost:local_port
+4. All traffic encrypted through SSH tunnel
+5. Tunnel automatically closed on disconnect
+
+### Status Indicators
+
+- 🔒 **SSH Tunnel Configured**: Tunnel enabled but not active
+- 🔒 **via SSH:xxxxx**: Active tunnel with local port number
+- Connection tooltip shows tunnel status and configuration
+
+### Use Cases
+
+- Access databases in private VPCs
+- Connect through corporate jump servers
+- Secure connections to remote databases
+- Bypass firewall restrictions
+- Multi-hop database access
+
+---
+
+## Table Data Grid View
+
+### Overview
+View and edit database table data in a spreadsheet-like interface with pagination and inline editing.
+
+### Supported Databases
+- PostgreSQL
+- MySQL
+- MariaDB
+- SQLite
+- MongoDB (collections)
+
+### How to Use
+
+**Open Grid View:**
+
+1. Expand a database connection
+2. Right-click on a table or collection
+3. Select **"Open in Grid View"**
+
+**Features:**
+
+- **Pagination**: Navigate through large datasets
+  - Default: 50 rows per page
+  - Page selector with total page count
+  - Previous/Next buttons
+  - Direct page navigation
+
+- **Inline Editing**: Click any cell to edit
+  - Edit text directly in cells
+  - Changes auto-saved on blur
+  - Undo not supported (changes immediate)
+
+- **Insert Rows**: Add new records
+  - Click "➕ Insert Row"
+  - Enter values for each column
+  - ID/auto-increment fields skipped
+
+- **Delete Rows**: Remove records
+  - Click "🗑 Delete" button
+  - Confirmation prompt before deletion
+  - Cannot be undone
+
+- **Refresh**: Reload current page data
+
+### Grid Interface
+
+```
+┌─────────────────────────────────────────────────┐
+│ 🔄 Refresh  ➕ Insert Row    Total: 1,234 rows │
+│ ◀ Previous   Page [1] of 25   Next ▶          │
+├─────────────────────────────────────────────────┤
+│ # │ id │ name    │ email           │ Actions   │
+├─────────────────────────────────────────────────┤
+│ 1 │ 101│ John    │ john@ex.com     │ 🗑 Delete │
+│ 2 │ 102│ Jane    │ jane@ex.com     │ 🗑 Delete │
+└─────────────────────────────────────────────────┘
+```
+
+### Limitations
+
+- **SQL Databases**: Row updates use simplified WHERE clauses (may need enhancement for production use with proper primary key tracking)
+- **MongoDB**: _id tracking required for updates/deletes
+- **Large Datasets**: Pagination required, no "load all" option
+- **Complex Types**: JSON/Array types may display as strings
+
+### Best Practices
+
+1. Test edits on non-production data first
+2. Use grid view for quick data inspection
+3. For complex updates, use SQL scripts
+4. Refresh regularly when multiple users editing
+5. Be careful with delete operations (no undo)
+
+---
+
+## Connection Health Monitoring
+
+### Overview
+Test connection health and view status indicators without establishing permanent connections.
+
+### Features
+
+- **Manual Health Checks**: Test any connection on demand
+- **Health Status Indicators**: Visual health status in tree view
+- **Response Time Tracking**: See how long connection tests take
+- **Last Check Timestamp**: Know when last health check was performed
+
+### How to Use
+
+**Test a Connection:**
+
+1. Right-click on any connection
+2. Select **"Test Connection"** (pulse icon)
+3. Wait for health check to complete
+4. View result notification
+
+**Health Status:**
+
+- $(pass-filled) **Online**: Connection healthy, responds quickly
+- $(error) **Offline**: Connection failed or timeout
+- ⚠️ **Warning**: Connection slow or partial failure
+- ❓ **Unknown**: Not yet tested
+
+**Status Tooltip:**
+
+Hover over a connection to see:
+- Connection type and host
+- SSH tunnel status (if configured)
+- Health status (online/offline/warning/unknown)
+- Last check timestamp
+- Response time (milliseconds)
+
+### Use Cases
+
+- Verify connection before executing queries
+- Check if remote database is accessible
+- Monitor connection performance
+- Troubleshoot connectivity issues
+- Validate SSH tunnel configuration
+
+### Response Time Guidelines
+
+- < 100ms: Excellent (local or high-speed network)
+- 100-500ms: Good (typical remote connection)
+- 500ms-2s: Acceptable (distant servers or slow network)
+- > 2s: Slow (investigate network/server issues)
+
+---
+
+## Planned Features
 
 ### Phase 3B Features (Next Release)
 - [ ] **SSH Tunneling for Databases** - Connect to remote databases through bastion/jump hosts

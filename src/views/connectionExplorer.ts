@@ -151,10 +151,15 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
     private async getFavoriteItems(): Promise<ConnectionItem[]> {
         const favorites = this.connectionManager.getFavoriteConnections();
         return favorites.map(conn => {
+            const tunnelStatus = this.connectionManager.getTunnelStatus(conn.id);
+            const healthStatus = this.connectionManager.getHealthStatus(conn.id);
             const item = new ConnectionItem(
                 conn,
                 this.connectionManager.isConnected(conn.id),
-                'connection'
+                'connection',
+                undefined,
+                tunnelStatus,
+                healthStatus
             );
             // Add star to favorites
             item.iconPath = new vscode.ThemeIcon('star-full');
@@ -166,10 +171,15 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
         const connections = this.connectionManager.getConnectionsInGroup(groupItem.config.id);
         return connections.map(conn => {
             const meta = this.connectionManager.getMetadata(conn.id);
+            const tunnelStatus = this.connectionManager.getTunnelStatus(conn.id);
+            const healthStatus = this.connectionManager.getHealthStatus(conn.id);
             const item = new ConnectionItem(
                 conn,
                 this.connectionManager.isConnected(conn.id),
-                'connection'
+                'connection',
+                undefined,
+                tunnelStatus,
+                healthStatus
             );
             // Show star for favorites in groups too
             if (meta?.isFavorite) {
@@ -183,10 +193,15 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
         const ungrouped = this.connectionManager.getUngroupedConnections();
         return ungrouped.map(conn => {
             const meta = this.connectionManager.getMetadata(conn.id);
+            const tunnelStatus = this.connectionManager.getTunnelStatus(conn.id);
+            const healthStatus = this.connectionManager.getHealthStatus(conn.id);
             const item = new ConnectionItem(
                 conn,
                 this.connectionManager.isConnected(conn.id),
-                'connection'
+                'connection',
+                undefined,
+                tunnelStatus,
+                healthStatus
             );
             // Show star for favorites
             if (meta?.isFavorite) {
@@ -635,7 +650,89 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
         config.database = database || undefined;
         config.username = username || undefined;
 
-        const credentials = { password };
+        const credentials: any = { password };
+
+        // SSH Tunnel configuration for database connections
+        if ([ConnectionType.PostgreSQL, ConnectionType.MySQL, ConnectionType.MariaDB, ConnectionType.MongoDB].includes(type)) {
+            const useTunnel = await vscode.window.showQuickPick(
+                ['No', 'Yes'],
+                { placeHolder: 'Use SSH Tunnel (for remote databases behind bastion/jump host)?' }
+            );
+
+            if (useTunnel === 'Yes') {
+                const sshHost = await vscode.window.showInputBox({
+                    prompt: 'SSH Tunnel Host (bastion/jump server)',
+                    placeHolder: 'bastion.example.com'
+                });
+
+                if (!sshHost) {
+                    vscode.window.showErrorMessage('SSH tunnel host is required');
+                    return;
+                }
+
+                const sshPortStr = await vscode.window.showInputBox({
+                    prompt: 'SSH Tunnel Port',
+                    value: '22',
+                    placeHolder: '22'
+                });
+
+                const sshUsername = await vscode.window.showInputBox({
+                    prompt: 'SSH Username',
+                    placeHolder: 'ubuntu'
+                });
+
+                if (!sshUsername) {
+                    vscode.window.showErrorMessage('SSH username is required');
+                    return;
+                }
+
+                const sshAuthMethod = await vscode.window.showQuickPick(
+                    ['Password', 'Private Key'],
+                    { placeHolder: 'SSH Authentication Method' }
+                );
+
+                if (!sshAuthMethod) {
+                    return;
+                }
+
+                if (sshAuthMethod === 'Password') {
+                    const sshPassword = await vscode.window.showInputBox({
+                        prompt: 'SSH Password',
+                        password: true
+                    });
+
+                    if (sshPassword === undefined) {
+                        return;
+                    }
+
+                    credentials.sshCredentials = { password: sshPassword };
+                } else {
+                    const keyFiles = await vscode.window.showOpenDialog({
+                        canSelectFiles: true,
+                        canSelectFolders: false,
+                        canSelectMany: false,
+                        filters: { 'SSH Private Key': ['pem', 'key', '*'] },
+                        title: 'Select SSH Private Key'
+                    });
+
+                    if (!keyFiles || keyFiles.length === 0) {
+                        vscode.window.showErrorMessage('SSH private key is required');
+                        return;
+                    }
+
+                    const fs = require('fs');
+                    const privateKey = fs.readFileSync(keyFiles[0].fsPath, 'utf8');
+                    credentials.sshCredentials = { privateKey };
+                }
+
+                config.sshTunnel = {
+                    enabled: true,
+                    host: sshHost,
+                    port: parseInt(sshPortStr || '22') || 22,
+                    username: sshUsername
+                };
+            }
+        }
 
         try {
             await this.connectionManager.addConnection(config, credentials);
@@ -738,7 +835,7 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             return;
         }
 
-        let credentials = undefined;
+        let credentials: any = undefined;
         if (updatePassword === 'Enter new password') {
             const password = await vscode.window.showInputBox({
                 prompt: 'New Password',
@@ -752,13 +849,112 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             credentials = { password };
         }
 
+        // SSH Tunnel configuration for database connections
+        let tunnelConfig = config.sshTunnel;
+        if ([ConnectionType.PostgreSQL, ConnectionType.MySQL, ConnectionType.MariaDB, ConnectionType.MongoDB].includes(config.type)) {
+            const currentTunnelStatus = config.sshTunnel?.enabled ? 'Enabled' : 'Disabled';
+            const updateTunnel = await vscode.window.showQuickPick(
+                [`Keep current (${currentTunnelStatus})`, 'Configure SSH Tunnel', 'Disable SSH Tunnel'],
+                { placeHolder: 'SSH Tunnel Configuration' }
+            );
+
+            if (!updateTunnel) {
+                return;
+            }
+
+            if (updateTunnel === 'Configure SSH Tunnel') {
+                const sshHost = await vscode.window.showInputBox({
+                    prompt: 'SSH Tunnel Host (bastion/jump server)',
+                    value: config.sshTunnel?.host || '',
+                    placeHolder: 'bastion.example.com'
+                });
+
+                if (!sshHost) {
+                    vscode.window.showErrorMessage('SSH tunnel host is required');
+                    return;
+                }
+
+                const sshPortStr = await vscode.window.showInputBox({
+                    prompt: 'SSH Tunnel Port',
+                    value: config.sshTunnel?.port.toString() || '22',
+                    placeHolder: '22'
+                });
+
+                const sshUsername = await vscode.window.showInputBox({
+                    prompt: 'SSH Username',
+                    value: config.sshTunnel?.username || '',
+                    placeHolder: 'ubuntu'
+                });
+
+                if (!sshUsername) {
+                    vscode.window.showErrorMessage('SSH username is required');
+                    return;
+                }
+
+                const sshAuthMethod = await vscode.window.showQuickPick(
+                    ['Password', 'Private Key', 'Keep current credentials'],
+                    { placeHolder: 'SSH Authentication Method' }
+                );
+
+                if (!sshAuthMethod) {
+                    return;
+                }
+
+                if (sshAuthMethod === 'Password') {
+                    const sshPassword = await vscode.window.showInputBox({
+                        prompt: 'SSH Password',
+                        password: true
+                    });
+
+                    if (sshPassword === undefined) {
+                        return;
+                    }
+
+                    if (!credentials) {
+                        credentials = {};
+                    }
+                    credentials.sshCredentials = { password: sshPassword };
+                } else if (sshAuthMethod === 'Private Key') {
+                    const keyFiles = await vscode.window.showOpenDialog({
+                        canSelectFiles: true,
+                        canSelectFolders: false,
+                        canSelectMany: false,
+                        filters: { 'SSH Private Key': ['pem', 'key', '*'] },
+                        title: 'Select SSH Private Key'
+                    });
+
+                    if (!keyFiles || keyFiles.length === 0) {
+                        vscode.window.showErrorMessage('SSH private key is required');
+                        return;
+                    }
+
+                    const fs = require('fs');
+                    const privateKey = fs.readFileSync(keyFiles[0].fsPath, 'utf8');
+                    if (!credentials) {
+                        credentials = {};
+                    }
+                    credentials.sshCredentials = { privateKey };
+                }
+
+                tunnelConfig = {
+                    enabled: true,
+                    host: sshHost,
+                    port: parseInt(sshPortStr || '22') || 22,
+                    username: sshUsername
+                };
+            } else if (updateTunnel === 'Disable SSH Tunnel') {
+                tunnelConfig = undefined;
+            }
+        }
+
         const updatedConfig: ConnectionConfig = {
             ...config,
             name: name || config.name,
             host: host || 'localhost',
             port: parseInt(portStr) || this.getDefaultPort(config.type),
             database: database || undefined,
-            username: username || undefined
+            username: username || undefined,
+            sshTunnel: tunnelConfig
         };
 
         try {
@@ -2850,7 +3046,9 @@ export class ConnectionItem extends vscode.TreeItem {
         public readonly config: ConnectionConfig,
         public readonly isConnected: boolean,
         public readonly contextValue: string = 'connection',
-        label?: string
+        label?: string,
+        public readonly tunnelStatus?: { active: boolean; localPort?: number },
+        public readonly healthStatus?: 'online' | 'offline' | 'warning' | 'unknown'
     ) {
         super(
             label || config.name,
@@ -2860,7 +3058,13 @@ export class ConnectionItem extends vscode.TreeItem {
         );
 
         if (contextValue === 'connection') {
-            this.tooltip = `${config.type} - ${config.host || config.database}`;
+            const tunnelInfo = config.sshTunnel?.enabled 
+                ? (tunnelStatus?.active 
+                    ? ` 🔒 via SSH:${tunnelStatus.localPort}` 
+                    : ' 🔒 SSH Tunnel Configured')
+                : '';
+            const healthIcon = healthStatus === 'online' ? '$(pass-filled)' : healthStatus === 'offline' ? '$(error)' : '';
+            this.tooltip = `${config.type} - ${config.host || config.database}${tunnelInfo}\nHealth: ${healthStatus || 'unknown'}`;
             this.description = isConnected ? '$(check) Connected' : '$(circle-slash) Disconnected';
             this.iconPath = new vscode.ThemeIcon(this.getIcon(config.type));
         } else if (contextValue === 'database') {

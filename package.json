@@ -2,7 +2,7 @@
   "name": "db-services-manager",
   "displayName": "Database & Services Manager",
   "description": "Secure connection manager for databases (PostgreSQL, MySQL, SQLite, MongoDB, Neo4J, MariaDB) and services (Redis, BullMQ, Elasticsearch, SSH, Docker, SFTP, Kafka, RabbitMQ)",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "publisher": "bhaarn",
   "author": "Bharani Dharan Krishnaswamy",
   "license": "MIT",
@@ -94,6 +94,11 @@
         "icon": "$(plug)"
       },
       {
+        "command": "dbServices.testConnection",
+        "title": "Test Connection",
+        "icon": "$(pulse)"
+      },
+      {
         "command": "dbServices.disconnect",
         "title": "Disconnect",
         "icon": "$(debug-disconnect)"
@@ -132,6 +137,11 @@
         "command": "dbServices.runSQLScript",
         "title": "Run SQL Script",
         "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.openTableGrid",
+        "title": "Open in Grid View",
+        "icon": "$(table)"
       },
       {
         "command": "dbServices.runCypherScript",
@@ -524,6 +534,11 @@
           "group": "inline"
         },
         {
+          "command": "dbServices.testConnection",
+          "when": "view == dbServicesExplorer && viewItem == connection",
+          "group": "inline"
+        },
+        {
           "command": "dbServices.editConnection",
           "when": "view == dbServicesExplorer && viewItem == connection",
           "group": "inline"
@@ -584,7 +599,17 @@
           "group": "collection@5"
         },
         {
+          "command": "dbServices.openTableGrid",
+          "when": "view == dbServicesExplorer && viewItem == collection",
+          "group": "collection@5"
+        },
+        {
           "command": "dbServices.runSQLScript",
+          "when": "view == dbServicesExplorer && viewItem == table",
+          "group": "table@1"
+        },
+        {
+          "command": "dbServices.openTableGrid",
           "when": "view == dbServicesExplorer && viewItem == table",
           "group": "table@1"
         },
