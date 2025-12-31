@@ -8,12 +8,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bhaarn/db-services-manager"
+    "url": "https://github.com/bhaarn/VS_Code_Extension_for_DBs_Services"
   },
   "bugs": {
-    "url": "https://github.com/bhaarn/db-services-manager/issues"
+    "url": "https://github.com/bhaarn/VS_Code_Extension_for_DBs_Services/issues"
   },
-  "homepage": "https://github.com/bhaarn/db-services-manager#readme",
+  "homepage": "https://github.com/bhaarn/VS_Code_Extension_for_DBs_Services#readme",
   "keywords": [
     "database",
     "postgresql",
