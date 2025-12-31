@@ -23,10 +23,16 @@ export function activate(context: vscode.ExtensionContext) {
     const savedQueries = new SavedQueries(context, connectionManager, connectionExplorer);
     const tableGridView = new TableGridView(connectionManager);
     
-    // Register tree views
-    vscode.window.registerTreeDataProvider('dbServicesExplorer', connectionExplorer);
-    vscode.window.registerTreeDataProvider('queryHistoryExplorer', queryHistory);
-    vscode.window.registerTreeDataProvider('savedQueriesExplorer', savedQueries);
+    // Register tree views (add to subscriptions for proper disposal)
+    context.subscriptions.push(
+        vscode.window.registerTreeDataProvider('dbServicesExplorer', connectionExplorer)
+    );
+    context.subscriptions.push(
+        vscode.window.registerTreeDataProvider('queryHistoryExplorer', queryHistory)
+    );
+    context.subscriptions.push(
+        vscode.window.registerTreeDataProvider('savedQueriesExplorer', savedQueries)
+    );
 
     // Pass queryHistory to connectionExplorer so it can log queries
     (connectionExplorer as any).queryHistory = queryHistory;
