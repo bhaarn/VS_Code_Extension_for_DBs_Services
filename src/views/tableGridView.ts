@@ -99,12 +99,9 @@ export class TableGridView {
                 case ConnectionType.PostgreSQL:
                 case ConnectionType.MySQL:
                 case ConnectionType.MariaDB:
-                    query = `SELECT * FROM ${this.currentTable} LIMIT ${this.pageSize} OFFSET ${offset}`;
-                    countQuery = `SELECT COUNT(*) as count FROM ${this.currentTable}`;
-                    if (this.currentDatabase) {
-                        query = `USE ${this.currentDatabase}; ${query}`;
-                        countQuery = `USE ${this.currentDatabase}; ${countQuery}`;
-                    }
+                    const tableName = this.currentDatabase ? `${this.currentDatabase}.${this.currentTable}` : this.currentTable;
+                    query = `SELECT * FROM ${tableName} LIMIT ${this.pageSize} OFFSET ${offset}`;
+                    countQuery = `SELECT COUNT(*) as count FROM ${tableName}`;
                     break;
                 
                 case ConnectionType.SQLite:
@@ -113,31 +110,52 @@ export class TableGridView {
                     break;
 
                 case ConnectionType.MongoDB:
-                    // MongoDB will be handled differently via provider
-                    query = `db.${this.currentTable}.find().skip(${offset}).limit(${this.pageSize})`;
-                    countQuery = `db.${this.currentTable}.countDocuments()`;
+                    // MongoDB will be handled via provider's native methods
+                    query = JSON.stringify({ collection: this.currentTable, skip: offset, limit: this.pageSize });
+                    countQuery = JSON.stringify({ collection: this.currentTable, operation: 'count' });
                     break;
 
                 default:
                     throw new Error(`Table grid view not supported for ${this.currentConnection.type}`);
             }
 
-            // Get total count
+            // Get total count and data
             if (!provider.executeQuery) {
                 throw new Error('Provider does not support query execution');
             }
             
-            const countResult: any = await provider.executeQuery(this.currentConnection.id, countQuery);
             let totalRows = 0;
+            let result: any;
             
             if (this.currentConnection.type === ConnectionType.MongoDB) {
-                totalRows = parseInt(countResult) || 0;
-            } else if (Array.isArray(countResult) && countResult.length > 0) {
-                totalRows = countResult[0].count || 0;
+                // For MongoDB, use native driver methods
+                try {
+                    const countQueryObj = JSON.parse(countQuery);
+                    const dataQueryObj = JSON.parse(query);
+                    
+                    // Execute count - provider should handle this specially for MongoDB
+                    const countResult: any = await provider.executeQuery(
+                        this.currentConnection.id, 
+                        `db.getCollection('${countQueryObj.collection}').countDocuments({})`
+                    );
+                    totalRows = typeof countResult === 'number' ? countResult : (countResult?.result || 0);
+                    
+                    // Execute find
+                    result = await provider.executeQuery(
+                        this.currentConnection.id, 
+                        `db.getCollection('${dataQueryObj.collection}').find().skip(${dataQueryObj.skip}).limit(${dataQueryObj.limit}).toArray()`
+                    );
+                } catch (err) {
+                    throw new Error(`MongoDB query failed: ${err}`);
+                }
+            } else {
+                // SQL databases
+                const countResult: any = await provider.executeQuery(this.currentConnection.id, countQuery);
+                if (Array.isArray(countResult) && countResult.length > 0) {
+                    totalRows = countResult[0].count || countResult[0].COUNT || 0;
+                }
+                result = await provider.executeQuery(this.currentConnection.id, query);
             }
-
-            // Get data
-            const result: any = await provider.executeQuery(this.currentConnection.id, query);
             
             let tableData: TableData;
             if (this.currentConnection.type === ConnectionType.MongoDB) {
@@ -245,10 +263,13 @@ export class TableGridView {
                 case ConnectionType.SQLite:
                     // For SQL, we need the primary key - this is simplified
                     // In production, you'd need to track PKs properly
-                    query = `UPDATE ${this.currentTable} SET ${columnName} = '${value}' WHERE rowid = ${actualRowIndex + 1}`;
-                    if (this.currentDatabase && this.currentConnection.type !== ConnectionType.SQLite) {
-                        query = `USE ${this.currentDatabase}; ${query}`;
-                    }
+                    const tableName = (this.currentDatabase && this.currentConnection.type !== ConnectionType.SQLite) 
+                        ? `${this.currentDatabase}.${this.currentTable}` 
+                        : this.currentTable;
+                    const whereClause = this.currentConnection.type === ConnectionType.SQLite 
+                        ? `WHERE rowid = ${actualRowIndex + 1}`
+                        : `LIMIT 1`; // This is a simplified approach
+                    query = `UPDATE ${tableName} SET ${columnName} = '${value}' ${whereClause}`;
                     break;
 
                 case ConnectionType.MongoDB:
@@ -297,16 +318,16 @@ export class TableGridView {
                 case ConnectionType.MySQL:
                 case ConnectionType.MariaDB:
                 case ConnectionType.SQLite:
-                    query = `INSERT INTO ${this.currentTable} (${columns.join(', ')}) VALUES (${values})`;
-                    if (this.currentDatabase && this.currentConnection.type !== ConnectionType.SQLite) {
-                        query = `USE ${this.currentDatabase}; ${query}`;
-                    }
+                    const tableName = (this.currentDatabase && this.currentConnection.type !== ConnectionType.SQLite) 
+                        ? `${this.currentDatabase}.${this.currentTable}` 
+                        : this.currentTable;
+                    query = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${values})`;
                     break;
-
+                
                 case ConnectionType.MongoDB:
-                    query = `db.${this.currentTable}.insertOne(${JSON.stringify(data)})`;
+                    query = `db.getCollection('${this.currentTable}').insertOne(${JSON.stringify(data)})`;
                     break;
-
+                
                 default:
                     throw new Error(`Insert not supported for ${this.currentConnection.type}`);
             }
@@ -356,15 +377,18 @@ export class TableGridView {
                 case ConnectionType.MySQL:
                 case ConnectionType.MariaDB:
                 case ConnectionType.SQLite:
-                    query = `DELETE FROM ${this.currentTable} WHERE rowid = ${actualRowIndex + 1}`;
-                    if (this.currentDatabase && this.currentConnection.type !== ConnectionType.SQLite) {
-                        query = `USE ${this.currentDatabase}; ${query}`;
-                    }
+                    const tableName = (this.currentDatabase && this.currentConnection.type !== ConnectionType.SQLite) 
+                        ? `${this.currentDatabase}.${this.currentTable}` 
+                        : this.currentTable;
+                    const whereClause = this.currentConnection.type === ConnectionType.SQLite 
+                        ? `WHERE rowid = ${actualRowIndex + 1}`
+                        : `LIMIT 1`; // This is simplified - ideally use primary key
+                    query = `DELETE FROM ${tableName} ${whereClause}`;
                     break;
 
                 case ConnectionType.MongoDB:
                     // Would need _id from the row data
-                    query = `db.${this.currentTable}.deleteOne({ _id: ObjectId('...') })`;
+                    query = `db.getCollection('${this.currentTable}').deleteOne({ _id: ObjectId('...') })`;
                     break;
 
                 default:
@@ -597,19 +621,19 @@ export class TableGridView {
         function insertRow() {
             // Simple prompt for new row data (could be enhanced with a form)
             const columns = ${JSON.stringify(data.columns)};
-            const data = {};
+            const newRowData = {};
             for (const col of columns) {
                 if (col !== '_id' && col !== 'id') { // Skip auto-increment/ID fields
                     const value = prompt(\`Enter value for \${col}:\`);
                     if (value !== null) {
-                        data[col] = value;
+                        newRowData[col] = value;
                     }
                 }
             }
-            if (Object.keys(data).length > 0) {
+            if (Object.keys(newRowData).length > 0) {
                 vscode.postMessage({ 
                     command: 'insertRow', 
-                    data: data 
+                    data: newRowData 
                 });
             }
         }
