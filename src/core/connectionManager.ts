@@ -310,6 +310,13 @@ export class ConnectionManager {
     }
 
     /**
+     * Get all connections
+     */
+    getAllConnections(): ConnectionConfig[] {
+        return Array.from(this.connections.values());
+    }
+
+    /**
      * Check if connection is active
      */
     isConnected(connectionId: string): boolean {
