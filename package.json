@@ -44,7 +44,12 @@
     "Data Science",
     "Programming Languages"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:dbServicesExplorer",
+    "onView:queryHistoryExplorer",
+    "onView:savedQueriesExplorer",
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
