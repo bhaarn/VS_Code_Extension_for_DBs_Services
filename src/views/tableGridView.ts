@@ -207,7 +207,7 @@ export class TableGridView {
                 break;
 
             case 'insertRow':
-                await this.insertRow(message.data);
+                await this.insertRowWithPrompt();
                 break;
 
             case 'deleteRow':
@@ -277,12 +277,109 @@ export class TableGridView {
     }
 
     /**
+     * Insert new row with prompts
+     */
+    private async insertRowWithPrompt(): Promise<void> {
+        if (!this.currentConnection || !this.currentTable) {
+            vscode.window.showErrorMessage('No connection or table selected');
+            return;
+        }
+
+        try {
+            const provider = await this.connectionManager.getProviderForConnection(this.currentConnection.id);
+            if (!provider) {
+                throw new Error('Provider not available');
+            }
+
+            if (!provider.executeQuery) {
+                throw new Error('Provider does not support query execution');
+            }
+
+            // Get columns from current table
+            let columns: string[] = [];
+            const offset = (this.currentPage - 1) * this.pageSize;
+            let query = '';
+
+            switch (this.currentConnection.type) {
+                case ConnectionType.PostgreSQL:
+                case ConnectionType.MySQL:
+                case ConnectionType.MariaDB:
+                    const tableName = this.currentDatabase ? `${this.currentDatabase}.${this.currentTable}` : this.currentTable;
+                    query = `SELECT * FROM ${tableName} LIMIT 1`;
+                    break;
+                case ConnectionType.SQLite:
+                    query = `SELECT * FROM ${this.currentTable} LIMIT 1`;
+                    break;
+                case ConnectionType.MongoDB:
+                    query = `db.${this.currentTable}.find({})`;
+                    break;
+            }
+
+            const result: any = await provider.executeQuery(this.currentConnection.id, query);
+            const rows = Array.isArray(result) ? result : [];
+            if (rows.length > 0) {
+                columns = Object.keys(rows[0]);
+            }
+
+            if (columns.length === 0) {
+                vscode.window.showErrorMessage('Could not determine table columns');
+                return;
+            }
+
+            // Filter out auto-increment columns
+            const editableColumns = columns.filter(col => 
+                col !== '_id' && col !== 'id' && col !== 'rowid' && 
+                !col.toLowerCase().includes('auto') && !col.toLowerCase().includes('serial')
+            );
+
+            if (editableColumns.length === 0) {
+                vscode.window.showErrorMessage('No editable columns found');
+                return;
+            }
+
+            // Prompt for each column value
+            const data: any = {};
+            for (const col of editableColumns) {
+                const value = await vscode.window.showInputBox({
+                    prompt: `Enter value for column: ${col}`,
+                    placeHolder: `Value for ${col} (leave empty for NULL)`,
+                    ignoreFocusOut: true
+                });
+
+                if (value === undefined) {
+                    // User cancelled
+                    return;
+                }
+
+                if (value !== '') {
+                    data[col] = value;
+                }
+            }
+
+            if (Object.keys(data).length === 0) {
+                vscode.window.showWarningMessage('No data entered, insert cancelled');
+                return;
+            }
+
+            // Now insert the row
+            await this.insertRow(data);
+
+        } catch (error: any) {
+            console.error('Insert prompt error:', error);
+            vscode.window.showErrorMessage(`Failed to insert row: ${error.message}`);
+        }
+    }
+
+    /**
      * Insert new row
      */
     private async insertRow(data: any): Promise<void> {
         if (!this.currentConnection || !this.currentTable) {
+            vscode.window.showErrorMessage('No connection or table selected');
             return;
         }
+
+        console.log('insertRow called with data:', data);
 
         try {
             const provider = await this.connectionManager.getProviderForConnection(this.currentConnection.id);
@@ -297,8 +394,13 @@ export class TableGridView {
             // Build INSERT query
             let query = '';
             const columns = Object.keys(data);
+            
+            if (columns.length === 0) {
+                throw new Error('No columns provided for insert');
+            }
+            
             const values = Object.values(data).map(v => {
-                if (v === null || v === undefined) {
+                if (v === null || v === undefined || v === '') {
                     return 'NULL';
                 }
                 // Escape single quotes in string values
@@ -315,21 +417,25 @@ export class TableGridView {
                         ? `${this.currentDatabase}.${this.currentTable}` 
                         : this.currentTable;
                     query = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${values})`;
+                    console.log('SQL INSERT query:', query);
                     break;
                 
                 case ConnectionType.MongoDB:
                     query = `db.${this.currentTable}.insertOne(${JSON.stringify(data)})`;
+                    console.log('MongoDB INSERT query:', query);
                     break;
                 
                 default:
                     throw new Error(`Insert not supported for ${this.currentConnection.type}`);
             }
 
-            await provider.executeQuery(this.currentConnection.id, query);
+            const result = await provider.executeQuery(this.currentConnection.id, query);
+            console.log('Insert result:', result);
             vscode.window.showInformationMessage('Row inserted successfully');
             await this.loadTableData(); // Refresh view
 
         } catch (error: any) {
+            console.error('Insert error:', error);
             vscode.window.showErrorMessage(`Failed to insert row: ${error.message}`);
         }
     }
@@ -612,23 +718,10 @@ export class TableGridView {
         }
         
         function insertRow() {
-            // Simple prompt for new row data (could be enhanced with a form)
-            const columns = ${JSON.stringify(data.columns)};
-            const newRowData = {};
-            for (const col of columns) {
-                if (col !== '_id' && col !== 'id') { // Skip auto-increment/ID fields
-                    const value = prompt(\`Enter value for \${col}:\`);
-                    if (value !== null) {
-                        newRowData[col] = value;
-                    }
-                }
-            }
-            if (Object.keys(newRowData).length > 0) {
-                vscode.postMessage({ 
-                    command: 'insertRow', 
-                    data: newRowData 
-                });
-            }
+            // Request insert from extension - it will show input boxes
+            vscode.postMessage({ 
+                command: 'insertRow'
+            });
         }
     </script>
 </body>
