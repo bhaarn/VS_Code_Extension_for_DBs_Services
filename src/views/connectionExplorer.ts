@@ -3063,7 +3063,25 @@ export class ConnectionItem extends vscode.TreeItem {
                     ? ` 🔒 via SSH:${tunnelStatus.localPort}` 
                     : ' 🔒 SSH Tunnel Configured')
                 : '';
-            const healthIcon = healthStatus === 'online' ? '$(pass-filled)' : healthStatus === 'offline' ? '$(error)' : '';
+            
+            // Health status icons
+            let healthIcon = '';
+            let healthColor = '';
+            if (healthStatus === 'online') {
+                healthIcon = '🟢';
+                healthColor = 'green';
+            } else if (healthStatus === 'offline') {
+                healthIcon = '🔴';
+                healthColor = 'red';
+            } else if (healthStatus === 'warning') {
+                healthIcon = '🟡';
+                healthColor = 'yellow';
+            } else {
+                healthIcon = '⚪';
+                healthColor = 'gray';
+            }
+            
+            this.label = `${healthIcon} ${label || config.name}`;
             this.tooltip = `${config.type} - ${config.host || config.database}${tunnelInfo}\nHealth: ${healthStatus || 'unknown'}`;
             this.description = isConnected ? '$(check) Connected' : '$(circle-slash) Disconnected';
             this.iconPath = new vscode.ThemeIcon(this.getIcon(config.type));
