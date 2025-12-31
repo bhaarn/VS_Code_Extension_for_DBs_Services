@@ -325,17 +325,35 @@ export class TableGridView {
             
             if (this.currentConnection.type === ConnectionType.SQLite) {
                 // SQLite PRAGMA returns array with 'name' property
-                columns = Array.isArray(result) ? result.map((col: any) => col.name) : [];
+                if (Array.isArray(result) && result.length > 0) {
+                    columns = result.map((col: any) => col.name);
+                }
             } else if (this.currentConnection.type === ConnectionType.MongoDB) {
                 // MongoDB - get columns from first document
                 const rows = Array.isArray(result) ? result : [];
                 if (rows.length > 0) {
                     columns = Object.keys(rows[0]);
+                } else {
+                    // If collection is empty, ask user to provide column names
+                    const columnInput = await vscode.window.showInputBox({
+                        prompt: 'Collection is empty. Enter column names (comma-separated)',
+                        placeHolder: 'e.g. name, email, age',
+                        ignoreFocusOut: true
+                    });
+                    
+                    if (!columnInput) {
+                        vscode.window.showWarningMessage('Insert cancelled - no columns specified');
+                        return;
+                    }
+                    
+                    columns = columnInput.split(',').map(c => c.trim()).filter(c => c.length > 0);
                 }
             } else {
                 // PostgreSQL, MySQL, MariaDB - information_schema query
                 columns = Array.isArray(result) ? result.map((col: any) => col.column_name || col.COLUMN_NAME) : [];
             }
+
+            console.log('Detected columns:', columns);
 
             if (columns.length === 0) {
                 vscode.window.showErrorMessage('Could not determine table columns');
