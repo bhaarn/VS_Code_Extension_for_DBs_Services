@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Simple database icon suitable for activity bar (monochrome) -->
+  <!-- Top cylinder -->
+  <ellipse cx="12" cy="6" rx="8" ry="2.5" fill="currentColor" fill-opacity="0.9"/>
+  
+  <!-- Middle section -->
+  <path d="M 4 6 L 4 10.5 Q 4 13 12 13 Q 20 13 20 10.5 L 20 6" 
+        fill="currentColor" fill-opacity="0.7"/>
+  <ellipse cx="12" cy="10.5" rx="8" ry="2.5" fill="currentColor" fill-opacity="0.9"/>
+  
+  <!-- Bottom section -->
+  <path d="M 4 10.5 L 4 15 Q 4 17.5 12 17.5 Q 20 17.5 20 15 L 20 10.5" 
+        fill="currentColor" fill-opacity="0.5"/>
+  <ellipse cx="12" cy="15" rx="8" ry="2.5" fill="currentColor" fill-opacity="0.9"/>
+  
+  <!-- Connection indicators (small dots) -->
+  <circle cx="5" cy="4" r="1.2" fill="currentColor"/>
+  <circle cx="19" cy="4" r="1.2" fill="currentColor"/>
+  <circle cx="5" cy="19" r="1.2" fill="currentColor"/>
+  <circle cx="19" cy="19" r="1.2" fill="currentColor"/>
+</svg>

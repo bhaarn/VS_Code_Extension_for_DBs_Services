@@ -1,0 +1,426 @@
+{
+  "name": "db-services-manager",
+  "displayName": "Database & Services Manager",
+  "description": "Secure connection manager for databases (PostgreSQL, MySQL, SQLite, MongoDB, Neo4J, MariaDB) and services (Redis, BullMQ, Elasticsearch, SSH, Docker, SFTP, Kafka, RabbitMQ)",
+  "version": "1.0.0",
+  "publisher": "your-publisher-name",
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/db-services-manager"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/db-services-manager/issues"
+  },
+  "homepage": "https://github.com/yourusername/db-services-manager#readme",
+  "keywords": [
+    "database",
+    "postgresql",
+    "mysql",
+    "mongodb",
+    "neo4j",
+    "redis",
+    "docker",
+    "elasticsearch",
+    "kafka",
+    "rabbitmq",
+    "ssh",
+    "ftp",
+    "sftp",
+    "connection-manager",
+    "database-manager"
+  ],
+  "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Data Science",
+    "Programming Languages"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dbServicesExplorer",
+          "title": "Database & Services",
+          "icon": "resources/activity-bar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "dbServicesExplorer": [
+        {
+          "id": "dbServicesExplorer",
+          "name": "Connections"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "dbServices.addConnection",
+        "title": "Add Connection",
+        "icon": "$(add)"
+      },
+      {
+        "command": "dbServices.editConnection",
+        "title": "Edit Connection",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "dbServices.deleteConnection",
+        "title": "Delete Connection",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.connect",
+        "title": "Connect",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "dbServices.disconnect",
+        "title": "Disconnect",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "dbServices.refreshConnections",
+        "title": "Refresh Connections",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "dbServices.insertDocument",
+        "title": "Insert Document",
+        "icon": "$(add)"
+      },
+      {
+        "command": "dbServices.insertMultipleDocuments",
+        "title": "Insert Multiple Documents",
+        "icon": "$(add)"
+      },
+      {
+        "command": "dbServices.updateDocument",
+        "title": "Update Document",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "dbServices.deleteDocument",
+        "title": "Delete Document",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.runMongoScript",
+        "title": "Run MongoDB Script",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.runSQLScript",
+        "title": "Run SQL Script",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.runCypherScript",
+        "title": "Run Cypher Script",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.runRedisCommand",
+        "title": "Run Redis Command",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.insertRow",
+        "title": "Insert Row",
+        "icon": "$(add)"
+      },
+      {
+        "command": "dbServices.updateRow",
+        "title": "Update Row",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "dbServices.deleteRow",
+        "title": "Delete Row",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.listSFTPDirectory",
+        "title": "List Directory",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "dbServices.uploadSFTPFile",
+        "title": "Upload File",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "dbServices.downloadSFTPFile",
+        "title": "Download File",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "dbServices.downloadFTPFile",
+        "title": "Download File",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "dbServices.uploadFTPFile",
+        "title": "Upload File",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "dbServices.uploadFTPDirectory",
+        "title": "Upload Directory",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "dbServices.uploadSFTPDirectory",
+        "title": "Upload Directory",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "dbServices.runRabbitMQCommand",
+        "title": "Run RabbitMQ Command",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.runBullMQCommand",
+        "title": "Run BullMQ Command",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.runKafkaCommand",
+        "title": "Run Kafka Command",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.runSSHCommand",
+        "title": "Run SSH Command",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "dbServices.runDockerCommand",
+        "title": "Run Docker Command",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.runElasticsearchCommand",
+        "title": "Run Elasticsearch Command",
+        "icon": "$(play)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "dbServices.addConnection",
+          "when": "view == dbServicesExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "dbServices.refreshConnections",
+          "when": "view == dbServicesExplorer",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dbServices.connect",
+          "when": "view == dbServicesExplorer && viewItem == connection",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.editConnection",
+          "when": "view == dbServicesExplorer && viewItem == connection",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.deleteConnection",
+          "when": "view == dbServicesExplorer && viewItem == connection",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.insertDocument",
+          "when": "view == dbServicesExplorer && viewItem == collection",
+          "group": "collection@1"
+        },
+        {
+          "command": "dbServices.insertMultipleDocuments",
+          "when": "view == dbServicesExplorer && viewItem == collection",
+          "group": "collection@2"
+        },
+        {
+          "command": "dbServices.updateDocument",
+          "when": "view == dbServicesExplorer && viewItem == collection",
+          "group": "collection@3"
+        },
+        {
+          "command": "dbServices.deleteDocument",
+          "when": "view == dbServicesExplorer && viewItem == collection",
+          "group": "collection@4"
+        },
+        {
+          "command": "dbServices.runMongoScript",
+          "when": "view == dbServicesExplorer && viewItem == collection",
+          "group": "collection@5"
+        },
+        {
+          "command": "dbServices.runSQLScript",
+          "when": "view == dbServicesExplorer && viewItem == table",
+          "group": "table@1"
+        },
+        {
+          "command": "dbServices.insertRow",
+          "when": "view == dbServicesExplorer && viewItem == table",
+          "group": "table@2"
+        },
+        {
+          "command": "dbServices.updateRow",
+          "when": "view == dbServicesExplorer && viewItem == table",
+          "group": "table@3"
+        },
+        {
+          "command": "dbServices.deleteRow",
+          "when": "view == dbServicesExplorer && viewItem == table",
+          "group": "table@4"
+        },
+        {
+          "command": "dbServices.runCypherScript",
+          "when": "view == dbServicesExplorer && viewItem == label",
+          "group": "neo4j@1"
+        },
+        {
+          "command": "dbServices.runRedisCommand",
+          "when": "view == dbServicesExplorer && viewItem == key",
+          "group": "redis@1"
+        },
+        {
+          "command": "dbServices.listSFTPDirectory",
+          "when": "view == dbServicesExplorer && viewItem == directory",
+          "group": "sftp@1"
+        },
+        {
+          "command": "dbServices.uploadFTPFile",
+          "when": "view == dbServicesExplorer && viewItem == directory",
+          "group": "ftp@1"
+        },
+        {
+          "command": "dbServices.uploadFTPDirectory",
+          "when": "view == dbServicesExplorer && viewItem == directory",
+          "group": "ftp@2"
+        },
+        {
+          "command": "dbServices.downloadFTPFile",
+          "when": "view == dbServicesExplorer && viewItem == file",
+          "group": "ftp@3"
+        },
+        {
+          "command": "dbServices.downloadFTPFile",
+          "when": "view == dbServicesExplorer && viewItem == directory",
+          "group": "ftp@4"
+        },
+        {
+          "command": "dbServices.uploadSFTPFile",
+          "when": "view == dbServicesExplorer && viewItem == directory",
+          "group": "sftp@2"
+        },
+        {
+          "command": "dbServices.uploadSFTPDirectory",
+          "when": "view == dbServicesExplorer && viewItem == directory",
+          "group": "sftp@3"
+        },
+        {
+          "command": "dbServices.downloadSFTPFile",
+          "when": "view == dbServicesExplorer && viewItem == file",
+          "group": "sftp@4"
+        },
+        {
+          "command": "dbServices.downloadSFTPFile",
+          "when": "view == dbServicesExplorer && viewItem == directory",
+          "group": "sftp@5"
+        },
+        {
+          "command": "dbServices.runRabbitMQCommand",
+          "when": "view == dbServicesExplorer && viewItem == category-rabbitmq",
+          "group": "rabbitmq@1"
+        },
+        {
+          "command": "dbServices.runBullMQCommand",
+          "when": "view == dbServicesExplorer && viewItem == category-bullmq",
+          "group": "bullmq@1"
+        },
+        {
+          "command": "dbServices.runKafkaCommand",
+          "when": "view == dbServicesExplorer && viewItem == category-kafka",
+          "group": "kafka@1"
+        },
+        {
+          "command": "dbServices.runSSHCommand",
+          "when": "view == dbServicesExplorer && viewItem == category-ssh",
+          "group": "ssh@1"
+        },
+        {
+          "command": "dbServices.runDockerCommand",
+          "when": "view == dbServicesExplorer && viewItem == category-docker",
+          "group": "docker@1"
+        },
+        {
+          "command": "dbServices.runElasticsearchCommand",
+          "when": "view == dbServicesExplorer && viewItem == category-elasticsearch",
+          "group": "elasticsearch@1"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.2",
+    "@types/amqplib": "^0.10.8",
+    "@types/node": "18.x",
+    "@types/pg": "^8.16.0",
+    "@types/ssh2": "^1.15.5",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/vsce": "^2.19.0",
+    "eslint": "^8.54.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "@elastic/elasticsearch": "^8.11.0",
+    "amqplib": "^0.10.3",
+    "axios": "^1.13.2",
+    "basic-ftp": "^5.1.0",
+    "bullmq": "^5.1.5",
+    "dockerode": "^4.0.2",
+    "kafkajs": "^2.2.4",
+    "mariadb": "^3.2.3",
+    "mongodb": "^6.3.0",
+    "mysql2": "^3.6.5",
+    "neo4j-driver": "^5.15.0",
+    "pg": "^8.11.3",
+    "redis": "^4.6.11",
+    "sqlite3": "^5.1.6",
+    "ssh2": "^1.15.0",
+    "ssh2-sftp-client": "^10.0.3"
+  }
+}
