@@ -27,6 +27,7 @@ node_modules/**
 !node_modules/punycode/**
 !node_modules/saslprep/**
 !node_modules/sparse-bitfield/**
+!node_modules/memory-pager/**
 !node_modules/neo4j-driver/**
 !node_modules/neo4j-driver-core/**
 !node_modules/neo4j-driver-bolt-connection/**
