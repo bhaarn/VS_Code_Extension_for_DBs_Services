@@ -20,10 +20,14 @@ node_modules/**
 !node_modules/@mongodb-js/**
 !node_modules/mongodb-connection-string-url/**
 !node_modules/bson/**
+!node_modules/whatwg-url/**
+!node_modules/tr46/**
+!node_modules/webidl-conversions/**
 !node_modules/neo4j-driver/**
 !node_modules/neo4j-driver-core/**
 !node_modules/neo4j-driver-bolt-connection/**
 !node_modules/rxjs/**
+!node_modules/tslib/**
 .github/**
 *.backup
 *.bak
