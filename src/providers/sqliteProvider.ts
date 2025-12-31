@@ -80,8 +80,10 @@ export class SQLiteProvider extends BaseConnectionProvider {
         }
 
         return new Promise((resolve, reject) => {
-            // Check if it's a SELECT query
-            if (query.trim().toUpperCase().startsWith('SELECT')) {
+            const trimmedQuery = query.trim().toUpperCase();
+            
+            // Check if it's a SELECT or PRAGMA query (both return rows)
+            if (trimmedQuery.startsWith('SELECT') || trimmedQuery.startsWith('PRAGMA')) {
                 db.all(query, (err: any, rows: any) => {
                     if (err) reject(err);
                     else resolve(rows);

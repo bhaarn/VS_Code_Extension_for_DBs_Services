@@ -323,10 +323,15 @@ export class TableGridView {
 
             const result: any = await provider.executeQuery(this.currentConnection.id, query);
             
+            console.log('Raw schema query result:', result);
+            
             if (this.currentConnection.type === ConnectionType.SQLite) {
                 // SQLite PRAGMA returns array with 'name' property
                 if (Array.isArray(result) && result.length > 0) {
+                    console.log('SQLite PRAGMA result sample:', result[0]);
                     columns = result.map((col: any) => col.name);
+                } else {
+                    console.log('SQLite PRAGMA returned empty or invalid result');
                 }
             } else if (this.currentConnection.type === ConnectionType.MongoDB) {
                 // MongoDB - get columns from first document
