@@ -11,6 +11,11 @@ webpack.config.js
 **/*.ts
 !dist/**/*.js
 node_modules/**
+!node_modules/sqlite3/**
+!node_modules/@mapbox/**
+!node_modules/node-addon-api/**
+!node_modules/bindings/**
+!node_modules/file-uri-to-path/**
 .github/**
 *.backup
 *.bak
