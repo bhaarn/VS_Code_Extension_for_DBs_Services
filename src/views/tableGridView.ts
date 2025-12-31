@@ -295,30 +295,46 @@ export class TableGridView {
                 throw new Error('Provider does not support query execution');
             }
 
-            // Get columns from current table
+            // Get columns from current table using metadata queries
             let columns: string[] = [];
-            const offset = (this.currentPage - 1) * this.pageSize;
             let query = '';
 
             switch (this.currentConnection.type) {
                 case ConnectionType.PostgreSQL:
+                    const pgTable = this.currentDatabase ? `${this.currentDatabase}.${this.currentTable}` : this.currentTable;
+                    query = `SELECT column_name FROM information_schema.columns WHERE table_name = '${this.currentTable}' ORDER BY ordinal_position`;
+                    break;
+                    
                 case ConnectionType.MySQL:
                 case ConnectionType.MariaDB:
-                    const tableName = this.currentDatabase ? `${this.currentDatabase}.${this.currentTable}` : this.currentTable;
-                    query = `SELECT * FROM ${tableName} LIMIT 1`;
+                    const dbClause = this.currentDatabase ? `table_schema = '${this.currentDatabase}' AND` : '';
+                    query = `SELECT column_name FROM information_schema.columns WHERE ${dbClause} table_name = '${this.currentTable}' ORDER BY ordinal_position`;
                     break;
+                    
                 case ConnectionType.SQLite:
-                    query = `SELECT * FROM ${this.currentTable} LIMIT 1`;
+                    query = `PRAGMA table_info(${this.currentTable})`;
                     break;
+                    
                 case ConnectionType.MongoDB:
+                    // For MongoDB, try to get one document to determine fields
                     query = `db.${this.currentTable}.find({})`;
                     break;
             }
 
             const result: any = await provider.executeQuery(this.currentConnection.id, query);
-            const rows = Array.isArray(result) ? result : [];
-            if (rows.length > 0) {
-                columns = Object.keys(rows[0]);
+            
+            if (this.currentConnection.type === ConnectionType.SQLite) {
+                // SQLite PRAGMA returns array with 'name' property
+                columns = Array.isArray(result) ? result.map((col: any) => col.name) : [];
+            } else if (this.currentConnection.type === ConnectionType.MongoDB) {
+                // MongoDB - get columns from first document
+                const rows = Array.isArray(result) ? result : [];
+                if (rows.length > 0) {
+                    columns = Object.keys(rows[0]);
+                }
+            } else {
+                // PostgreSQL, MySQL, MariaDB - information_schema query
+                columns = Array.isArray(result) ? result.map((col: any) => col.column_name || col.COLUMN_NAME) : [];
             }
 
             if (columns.length === 0) {
