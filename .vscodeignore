@@ -19,10 +19,14 @@ node_modules/**
 !node_modules/mongodb/**
 !node_modules/@mongodb-js/**
 !node_modules/mongodb-connection-string-url/**
+!node_modules/@types/whatwg-url/**
 !node_modules/bson/**
 !node_modules/whatwg-url/**
 !node_modules/tr46/**
 !node_modules/webidl-conversions/**
+!node_modules/punycode/**
+!node_modules/saslprep/**
+!node_modules/sparse-bitfield/**
 !node_modules/neo4j-driver/**
 !node_modules/neo4j-driver-core/**
 !node_modules/neo4j-driver-bolt-connection/**
