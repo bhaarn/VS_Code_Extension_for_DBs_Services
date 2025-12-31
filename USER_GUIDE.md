@@ -1390,6 +1390,10 @@ Contributions are welcome! Please:
 - ✅ **Table Data Grid View** - Spreadsheet-like interface for data editing (v2.0)
 - ✅ **Connection Health Monitoring** - Test connections and view health status (v2.0)
 
+### Current Version (2.0.0)
+
+To export your connections, use the "Export Connections" command from the command palette (`Cmd+Shift+P` / `Ctrl+Shift+P`). This creates a JSON file with all your connection configurations (credentials are not exported for security).
+
 ### Previous Version (1.1.0)
 - Query history and saved queries
 - Export/Import connections

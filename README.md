@@ -164,7 +164,14 @@ For detailed help, see [USER_GUIDE.md](USER_GUIDE.md) or file an issue on GitHub
 
 ## 📝 Release Notes
 
-### 1.1.0 (Current)
+### 2.0.0 (Current - January 1, 2026)
+Phase 3B features:
+- **SSH Tunneling**: Secure database connections through SSH bastion hosts with password and private key authentication
+- **Table Grid View**: Spreadsheet-like interface for viewing and editing table data with pagination
+- **Connection Health Monitoring**: Test connection health with visual status indicators (🟢🟡🔴⚪)
+- Bug fixes and performance improvements
+
+### 1.1.0 (December 31, 2025)
 
 Phase 3A features:
 - **Query Result Export**: CSV, JSON, and Excel (.xlsx) export with buffer-based writing
