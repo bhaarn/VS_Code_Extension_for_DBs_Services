@@ -1387,16 +1387,18 @@ Contributions are welcome! Please:
 - ✅ Query templates and snippets (10 pre-built + 15 VS Code snippets)
 - ✅ Advanced Docker operations (start/stop/restart/remove containers/images/volumes/networks)
 
-### Planned Features
-- [ ] Table data grid view with inline editing
-- [ ] RabbitMQ Management API integration
-- [ ] SSH tunneling for databases
-- [ ] Direct file editing for FTP/SFTP
-- [ ] Database schema comparison
-- [ ] Automatic query formatting
-- [ ] Multi-connection query execution
-- [ ] Query performance profiling and optimization suggestions
-- [ ] Connection health monitoring and alerts
+### Phase 3B Features (Next Release)
+- [ ] **SSH Tunneling for Databases** - Connect to remote databases through bastion/jump hosts
+- [ ] **Table Data Grid View** - View and edit table data in spreadsheet-like interface
+- [ ] **Connection Health Monitoring** - Auto-test connections and show status indicators
+
+### Future Enhancements (Based on User Feedback)
+- Automatic query formatting (sql-formatter integration)
+- RabbitMQ Management API integration
+- Direct file editing for FTP/SFTP
+- Database schema comparison tools
+- Query performance profiling (EXPLAIN integration)
+- Multi-connection query execution
 
 ---
 
