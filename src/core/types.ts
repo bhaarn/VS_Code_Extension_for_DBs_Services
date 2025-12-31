@@ -74,3 +74,19 @@ export interface SavedQueryFolder {
     parentId?: string;
     createdAt: string;
 }
+
+export interface ConnectionGroup {
+    id: string;
+    name: string;
+    description?: string;
+    connectionIds: string[];
+    color?: string;
+    createdAt: string;
+}
+
+export interface ConnectionMetadata {
+    connectionId: string;
+    isFavorite: boolean;
+    groupId?: string;
+    notes?: string;
+}

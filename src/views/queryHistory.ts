@@ -177,6 +177,20 @@ export class QueryHistory implements vscode.TreeDataProvider<HistoryItem> {
         vscode.window.showInformationMessage('Query copied to clipboard');
     }
 
+    /**
+     * Export query result
+     */
+    async exportResult(item: HistoryItem): Promise<void> {
+        const { ExportUtils } = require('../core/exportUtils');
+        
+        vscode.window.showInformationMessage(
+            'To export query results, please re-run the query first. Export from Query History will be available in a future update.'
+        );
+        
+        // TODO: Store query results with history entries for direct export
+        // For now, users need to re-run the query and export from there
+    }
+
     private formatExecutionTime(ms: number): string {
         if (ms < 1000) {
             return `${ms}ms`;

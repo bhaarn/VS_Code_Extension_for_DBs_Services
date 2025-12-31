@@ -34,6 +34,32 @@ All notable changes to the "Database & Services Manager" extension will be docum
   - Available from saved queries
   - Available from direct execution
   - Interactive graph with vis-network
+- **Query Result Export**: Export query results in multiple formats
+  - CSV export with proper escaping
+  - JSON export with formatting
+  - Excel export (.xlsx) with buffer-based writing
+  - Export from query history or direct results
+- **Connection Groups and Favorites**: Organize connections efficiently
+  - Create groups to categorize connections
+  - Add/remove connections to groups
+  - Mark connections as favorites with star icons
+  - Tree view reorganized: Favorites → Groups → Connections
+  - Enhanced export/import v2.0 with groups and favorites
+- **Query Templates and Snippets**: Reusable query patterns
+  - 10 pre-built templates (Users, Orders, Products, Analytics, etc.)
+  - 15 VS Code snippets for common patterns
+  - {{placeholder}} syntax for variable replacement
+  - Template creation with connection and database context
+  - SQL templates include USE statements (MySQL/MariaDB)
+  - MongoDB templates include use commands
+  - Custom template creation with connection selection
+- **Advanced Docker Operations**: Complete container lifecycle management
+  - Unix socket support (/var/run/docker.sock on macOS/Linux)
+  - Start, stop, restart containers
+  - Remove containers, images, volumes, networks
+  - Inspect resources with detailed information
+  - View container logs
+  - Show all containers (running and stopped)
 
 ### Fixed
 - MongoDB saved query execution with script format parsing
@@ -46,6 +72,10 @@ All notable changes to the "Database & Services Manager" extension will be docum
 - SQLite multi-statement queries return correct results (last statement)
 - Import connections with passwords properly stores credentials in SecretStorage
 - Database context prompt when connection doesn't specify database
+- Docker Unix socket connection on macOS and Linux
+- Docker resource IDs for proper CRUD operations
+- MongoDB use command execution in templates and queries
+- Template database context for MongoDB connections
 
 ## [1.0.0] - 2025-12-30
 

@@ -41,10 +41,14 @@ A comprehensive VS Code extension for managing connections to multiple databases
 - **CRUD Operations**: Insert, update, delete data across all supported databases
 - **Query History**: Automatic tracking of last 100 queries with re-run capability
 - **Saved Queries**: Personal query library with folder organization
-- **Export/Import**: Backup and restore connections with optional password encryption
+- **Query Templates & Snippets**: 10 pre-built templates with {{placeholder}} syntax and 15 VS Code snippets
+- **Query Result Export**: Export results to CSV, JSON, or Excel formats
+- **Connection Groups**: Organize connections into logical groups (Production, Development, etc.)
+- **Favorites**: Star frequently used connections for quick access at the top
+- **Export/Import v2.0**: Backup and restore connections with groups, favorites, and metadata
 - **File Transfer**: Upload/download files and directories via FTP/SFTP
 - **Neo4J Visualization**: Interactive graph visualization using vis-network
-- **Docker Management**: List and inspect containers, images, volumes, and networks
+- **Advanced Docker Operations**: Start, stop, restart, remove containers/images/volumes/networks with Unix socket support
 - **Message Queue Operations**: Publish/consume messages, manage queues and topics
 - **SSH Command Execution**: Execute remote commands via SSH
 
@@ -160,6 +164,15 @@ For detailed help, see [USER_GUIDE.md](USER_GUIDE.md) or file an issue on GitHub
 
 ## 📝 Release Notes
 
+### 1.1.0 (Current)
+
+Phase 3A features:
+- **Query Result Export**: CSV, JSON, and Excel (.xlsx) export with buffer-based writing
+- **Connection Groups and Favorites**: Organize connections with groups and star important ones
+- **Query Templates and Snippets**: 10 pre-built templates with {{placeholder}} syntax, 15 VS Code snippets
+- **Advanced Docker Operations**: Unix socket support, start/stop/restart/remove containers/images/volumes/networks
+- **Enhanced Export/Import v2.0**: Includes groups, favorites, and metadata
+
 ### 1.0.0
 
 Initial release with:
@@ -216,4 +229,4 @@ MIT License
 
 ## Credits
 
-Inspired by various database clients but built with security as the primary focus.
+Developed by Bharani Dharan Krishnaswamy. Inspired by various database clients but built with security as the primary focus.

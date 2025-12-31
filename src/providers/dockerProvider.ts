@@ -4,23 +4,52 @@ import { ConnectionConfig } from '../core/types';
 export class DockerProvider extends BaseConnectionProvider {
     private axios: any;
 
+    private createClient(config: ConnectionConfig): any {
+        const axios = require('axios');
+        
+        // Check if using Unix socket (local Docker) or HTTP (remote Docker)
+        // If host is 'local' or 'unix' or starts with '/', use Unix socket
+        const isUnixSocket = !config.host || 
+                            config.host === 'local' || 
+                            config.host === 'unix' || 
+                            config.host.startsWith('/');
+
+        if (isUnixSocket) {
+            // Use Unix socket for local Docker
+            const socketPath = config.host?.startsWith('/') 
+                ? config.host 
+                : (process.platform === 'win32' 
+                    ? '//./pipe/docker_engine' 
+                    : '/var/run/docker.sock');
+            
+            return axios.create({
+                socketPath,
+                baseURL: 'http://localhost', // Required for axios even with socketPath
+                timeout: 10000
+            });
+        } else {
+            // Use HTTP for remote Docker
+            const baseURL = `http://${config.host}:${config.port || 2375}`;
+            return axios.create({
+                baseURL,
+                timeout: 10000
+            });
+        }
+    }
+
     async connect(config: ConnectionConfig, credentials: any): Promise<void> {
         try {
             // Lazy load axios
             this.axios = require('axios');
             
-            const baseURL = `http://${config.host}:${config.port || 2375}`;
-            const client = this.axios.create({
-                baseURL,
-                timeout: 10000
-            });
+            const client = this.createClient(config);
 
             // Test connection by getting version
             await client.get('/version');
             
             this.connections.set(config.id, client);
         } catch (error: any) {
-            throw new Error(`Failed to connect to Docker: ${error.message}`);
+            throw new Error(`Failed to connect to Docker: ${error.message || error}`);
         }
     }
 
@@ -30,13 +59,7 @@ export class DockerProvider extends BaseConnectionProvider {
 
     async testConnection(config: ConnectionConfig, credentials: any): Promise<boolean> {
         try {
-            const axios = require('axios');
-            const baseURL = `http://${config.host}:${config.port || 2375}`;
-            const client = axios.create({
-                baseURL,
-                timeout: 10000
-            });
-            
+            const client = this.createClient(config);
             await client.get('/version');
             return true;
         } catch (error) {
@@ -75,10 +98,9 @@ export class DockerProvider extends BaseConnectionProvider {
             switch (command) {
                 case 'containers':
                 case 'ps':
-                    // List all containers
-                    const allContainers = parts.includes('--all') || parts.includes('-a');
+                    // List all containers (including stopped ones)
                     const response = await client.get('/containers/json', {
-                        params: { all: allContainers }
+                        params: { all: true }
                     });
                     return { 
                         containers: response.data.map((c: any) => ({
@@ -122,7 +144,7 @@ export class DockerProvider extends BaseConnectionProvider {
                     const networksResponse = await client.get('/networks');
                     return {
                         networks: networksResponse.data.map((net: any) => ({
-                            id: net.Id.substring(0, 12),
+                            id: net.Id,
                             name: net.Name,
                             driver: net.Driver,
                             scope: net.Scope
@@ -157,6 +179,170 @@ export class DockerProvider extends BaseConnectionProvider {
             }
         } catch (error: any) {
             throw new Error(`Docker command failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Start a container
+     */
+    async startContainer(connectionId: string, containerId: string): Promise<void> {
+        const client = this.getConnection(connectionId);
+        if (!client) {
+            throw new Error('No active connection');
+        }
+
+        try {
+            await client.post(`/containers/${containerId}/start`);
+        } catch (error: any) {
+            throw new Error(`Failed to start container: ${error.message}`);
+        }
+    }
+
+    /**
+     * Stop a container
+     */
+    async stopContainer(connectionId: string, containerId: string): Promise<void> {
+        const client = this.getConnection(connectionId);
+        if (!client) {
+            throw new Error('No active connection');
+        }
+
+        try {
+            await client.post(`/containers/${containerId}/stop`);
+        } catch (error: any) {
+            throw new Error(`Failed to stop container: ${error.message}`);
+        }
+    }
+
+    /**
+     * Restart a container
+     */
+    async restartContainer(connectionId: string, containerId: string): Promise<void> {
+        const client = this.getConnection(connectionId);
+        if (!client) {
+            throw new Error('No active connection');
+        }
+
+        try {
+            await client.post(`/containers/${containerId}/restart`);
+        } catch (error: any) {
+            throw new Error(`Failed to restart container: ${error.message}`);
+        }
+    }
+
+    /**
+     * Remove a container
+     */
+    async removeContainer(connectionId: string, containerId: string, force: boolean = false): Promise<void> {
+        const client = this.getConnection(connectionId);
+        if (!client) {
+            throw new Error('No active connection');
+        }
+
+        try {
+            await client.delete(`/containers/${containerId}`, {
+                params: { force, v: true }
+            });
+        } catch (error: any) {
+            throw new Error(`Failed to remove container: ${error.message}`);
+        }
+    }
+
+    /**
+     * Remove an image
+     */
+    async removeImage(connectionId: string, imageId: string, force: boolean = false): Promise<void> {
+        const client = this.getConnection(connectionId);
+        if (!client) {
+            throw new Error('No active connection');
+        }
+
+        try {
+            await client.delete(`/images/${imageId}`, {
+                params: { force }
+            });
+        } catch (error: any) {
+            throw new Error(`Failed to remove image: ${error.message}`);
+        }
+    }
+
+    /**
+     * Remove a volume
+     */
+    async removeVolume(connectionId: string, volumeName: string, force: boolean = false): Promise<void> {
+        const client = this.getConnection(connectionId);
+        if (!client) {
+            throw new Error('No active connection');
+        }
+
+        try {
+            await client.delete(`/volumes/${volumeName}`, {
+                params: { force }
+            });
+        } catch (error: any) {
+            throw new Error(`Failed to remove volume: ${error.message}`);
+        }
+    }
+
+    /**
+     * Remove a network
+     */
+    async removeNetwork(connectionId: string, networkId: string): Promise<void> {
+        const client = this.getConnection(connectionId);
+        if (!client) {
+            throw new Error('No active connection');
+        }
+
+        try {
+            await client.delete(`/networks/${networkId}`);
+        } catch (error: any) {
+            throw new Error(`Failed to remove network: ${error.message}`);
+        }
+    }
+
+    /**
+     * View container logs
+     */
+    async viewContainerLogs(connectionId: string, containerId: string, tail: number = 100): Promise<string> {
+        const client = this.getConnection(connectionId);
+        if (!client) {
+            throw new Error('No active connection');
+        }
+
+        try {
+            const response = await client.get(`/containers/${containerId}/logs`, {
+                params: { stdout: true, stderr: true, tail, timestamps: true }
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(`Failed to get container logs: ${error.message}`);
+        }
+    }
+
+    /**
+     * Inspect container, image, volume, or network
+     */
+    async inspectResource(connectionId: string, resourceType: 'container' | 'image' | 'volume' | 'network', resourceId: string): Promise<any> {
+        const client = this.getConnection(connectionId);
+        if (!client) {
+            throw new Error('No active connection');
+        }
+
+        try {
+            let endpoint: string;
+            if (resourceType === 'container') {
+                endpoint = `/containers/${resourceId}/json`;
+            } else if (resourceType === 'image') {
+                endpoint = `/images/${resourceId}/json`;
+            } else if (resourceType === 'volume') {
+                endpoint = `/volumes/${resourceId}`;
+            } else {
+                endpoint = `/networks/${resourceId}`;
+            }
+            const response = await client.get(endpoint);
+            return response.data;
+        } catch (error: any) {
+            throw new Error(`Failed to inspect ${resourceType}: ${error.message}`);
         }
     }
 }

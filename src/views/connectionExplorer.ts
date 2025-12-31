@@ -72,13 +72,17 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
 
     getChildren(element?: ConnectionItem): Thenable<ConnectionItem[]> {
         if (!element) {
-            // Root level - show all connections
-            const connections = this.connectionManager.getConnections();
-            return Promise.resolve(connections.map((conn: ConnectionConfig) => new ConnectionItem(
-                conn,
-                this.connectionManager.isConnected(conn.id),
-                'connection'
-            )));
+            // Root level - show Favorites, Groups, and Ungrouped sections
+            return this.getRootItems();
+        } else if (element.contextValue === 'favorites-section') {
+            // Show favorite connections
+            return this.getFavoriteItems();
+        } else if (element.contextValue === 'group') {
+            // Show connections in this group
+            return this.getGroupConnections(element);
+        } else if (element.contextValue === 'ungrouped-section') {
+            // Show ungrouped connections
+            return this.getUngroupedItems();
         } else if (element.contextValue === 'connection' && element.isConnected) {
             // Show databases for connected connection
             return this.getDatabases(element);
@@ -93,6 +97,103 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             return this.getCategoryChildren(element);
         }
         return Promise.resolve([]);
+    }
+
+    private async getRootItems(): Promise<ConnectionItem[]> {
+        const items: ConnectionItem[] = [];
+        const favorites = this.connectionManager.getFavoriteConnections();
+        const groups = this.connectionManager.getGroups();
+        const ungrouped = this.connectionManager.getUngroupedConnections();
+
+        // Favorites section (only show if there are favorites)
+        if (favorites.length > 0) {
+            const favSection = new ConnectionItem(
+                { id: 'favorites', name: 'Favorites', type: ConnectionType.PostgreSQL } as ConnectionConfig,
+                false,
+                'favorites-section',
+                'Favorites'
+            );
+            favSection.iconPath = new vscode.ThemeIcon('star-full');
+            favSection.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+            items.push(favSection);
+        }
+
+        // Groups
+        groups.forEach(group => {
+            const groupItem = new ConnectionItem(
+                { id: group.id, name: group.name, type: ConnectionType.PostgreSQL } as ConnectionConfig,
+                false,
+                'group',
+                group.name
+            );
+            groupItem.description = group.description || `${group.connectionIds.length} connections`;
+            groupItem.iconPath = new vscode.ThemeIcon('folder');
+            groupItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+            items.push(groupItem);
+        });
+
+        // Ungrouped section
+        if (ungrouped.length > 0) {
+            const ungroupedSection = new ConnectionItem(
+                { id: 'ungrouped', name: 'Connections', type: ConnectionType.PostgreSQL } as ConnectionConfig,
+                false,
+                'ungrouped-section',
+                'Connections'
+            );
+            ungroupedSection.iconPath = new vscode.ThemeIcon('database');
+            ungroupedSection.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+            items.push(ungroupedSection);
+        }
+
+        return items;
+    }
+
+    private async getFavoriteItems(): Promise<ConnectionItem[]> {
+        const favorites = this.connectionManager.getFavoriteConnections();
+        return favorites.map(conn => {
+            const item = new ConnectionItem(
+                conn,
+                this.connectionManager.isConnected(conn.id),
+                'connection'
+            );
+            // Add star to favorites
+            item.iconPath = new vscode.ThemeIcon('star-full');
+            return item;
+        });
+    }
+
+    private async getGroupConnections(groupItem: ConnectionItem): Promise<ConnectionItem[]> {
+        const connections = this.connectionManager.getConnectionsInGroup(groupItem.config.id);
+        return connections.map(conn => {
+            const meta = this.connectionManager.getMetadata(conn.id);
+            const item = new ConnectionItem(
+                conn,
+                this.connectionManager.isConnected(conn.id),
+                'connection'
+            );
+            // Show star for favorites in groups too
+            if (meta?.isFavorite) {
+                item.iconPath = new vscode.ThemeIcon('star-full');
+            }
+            return item;
+        });
+    }
+
+    private async getUngroupedItems(): Promise<ConnectionItem[]> {
+        const ungrouped = this.connectionManager.getUngroupedConnections();
+        return ungrouped.map(conn => {
+            const meta = this.connectionManager.getMetadata(conn.id);
+            const item = new ConnectionItem(
+                conn,
+                this.connectionManager.isConnected(conn.id),
+                'connection'
+            );
+            // Show star for favorites
+            if (meta?.isFavorite) {
+                item.iconPath = new vscode.ThemeIcon('star-full');
+            }
+            return item;
+        });
     }
 
     private async getCategoryChildren(categoryItem: ConnectionItem): Promise<ConnectionItem[]> {
@@ -207,40 +308,60 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 // Docker returns containers, images, volumes, networks
                 if (result.containers) {
                     result.containers.forEach((container: any) => {
-                        children.push(new ConnectionItem(
+                        const item = new ConnectionItem(
                             categoryItem.config,
                             true,
                             'container',
-                            `${container.name} (${container.state})`
-                        ));
+                            container.name
+                        );
+                        item.description = container.state;
+                        item.tooltip = `${container.name}\nImage: ${container.image}\nStatus: ${container.status}`;
+                        // Store the actual container ID/name for operations
+                        (item as any).resourceId = container.name;
+                        children.push(item);
                     });
                 } else if (result.images) {
                     result.images.forEach((image: any) => {
                         const tag = Array.isArray(image.tags) ? image.tags[0] : image.tags;
-                        children.push(new ConnectionItem(
+                        const item = new ConnectionItem(
                             categoryItem.config,
                             true,
                             'image',
                             tag
-                        ));
+                        );
+                        item.description = image.size;
+                        item.tooltip = `${tag}\nID: ${image.id}\nSize: ${image.size}\nCreated: ${image.created}`;
+                        // Store the actual image ID for operations
+                        (item as any).resourceId = image.id;
+                        children.push(item);
                     });
                 } else if (result.volumes) {
                     result.volumes.forEach((volume: any) => {
-                        children.push(new ConnectionItem(
+                        const item = new ConnectionItem(
                             categoryItem.config,
                             true,
                             'volume',
                             volume.name
-                        ));
+                        );
+                        item.description = volume.driver;
+                        item.tooltip = `${volume.name}\nDriver: ${volume.driver}\nMountpoint: ${volume.mountpoint}`;
+                        // Store the actual volume name for operations
+                        (item as any).resourceId = volume.name;
+                        children.push(item);
                     });
                 } else if (result.networks) {
                     result.networks.forEach((network: any) => {
-                        children.push(new ConnectionItem(
+                        const item = new ConnectionItem(
                             categoryItem.config,
                             true,
                             'network',
                             network.name
-                        ));
+                        );
+                        item.description = `${network.driver} (${network.scope})`;
+                        item.tooltip = `${network.name}\nID: ${network.id}\nDriver: ${network.driver}\nScope: ${network.scope}`;
+                        // Store the actual network ID for operations
+                        (item as any).resourceId = network.id;
+                        children.push(item);
                     });
                 }
             } else if (providerType === ConnectionType.Elasticsearch) {
@@ -748,7 +869,16 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             });
             await vscode.window.showTextDocument(doc);
             
-            vscode.window.showInformationMessage(`Found ${Array.isArray(results) ? results.length : 0} documents in ${formatExecutionTime(executionTime)}`);
+            // Show success message with export option
+            const action = await vscode.window.showInformationMessage(
+                `Found ${Array.isArray(results) ? results.length : 0} documents in ${formatExecutionTime(executionTime)}`,
+                'Export Results'
+            );
+            
+            if (action === 'Export Results') {
+                const { ExportUtils } = require('../core/exportUtils');
+                await ExportUtils.exportData(results, `query_${item.label}_${Date.now()}`);
+            }
         } catch (error: any) {
             vscode.window.showErrorMessage(`Query failed: ${error.message}`);
             // Log failed query to history
@@ -1016,7 +1146,16 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                             });
                             await vscode.window.showTextDocument(resultDoc, { viewColumn: vscode.ViewColumn.Beside });
                             
-                            vscode.window.showInformationMessage(`Script executed successfully in ${formatExecutionTime(executionTime)}`);
+                            // Show success message with export option
+                            const action = await vscode.window.showInformationMessage(
+                                `Script executed successfully in ${formatExecutionTime(executionTime)}`,
+                                'Export Results'
+                            );
+                            
+                            if (action === 'Export Results') {
+                                const { ExportUtils } = require('../core/exportUtils');
+                                await ExportUtils.exportData(results, `mongodb_${Date.now()}`);
+                            }
                         }
                     }
                 } catch (error: any) {
@@ -1243,7 +1382,16 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                     });
                     await vscode.window.showTextDocument(resultDoc, { viewColumn: vscode.ViewColumn.Beside });
                     
-                    vscode.window.showInformationMessage(`SQL script executed successfully in ${formatExecutionTime(totalExecutionTime)}`);
+                    // Show success message with export option
+                    const action = await vscode.window.showInformationMessage(
+                        `SQL script executed successfully in ${formatExecutionTime(totalExecutionTime)}`,
+                        'Export Results'
+                    );
+                    
+                    if (action === 'Export Results') {
+                        const { ExportUtils } = require('../core/exportUtils');
+                        await ExportUtils.exportData(results[results.length - 1], `sql_query_${Date.now()}`);
+                    }
                 } catch (error: any) {
                     vscode.window.showErrorMessage(`SQL execution failed: ${error.message}`);
                 }
@@ -1310,7 +1458,16 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                     // Show graph visualization for Neo4j
                     this.showNeo4jGraphVisualization(results);
                     
-                    vscode.window.showInformationMessage(`Cypher script executed successfully (${statements.length} statement${statements.length > 1 ? 's' : ''}) in ${formatExecutionTime(totalExecutionTime)}`);
+                    // Show success message with export option
+                    const action = await vscode.window.showInformationMessage(
+                        `Cypher script executed successfully (${statements.length} statement${statements.length > 1 ? 's' : ''}) in ${formatExecutionTime(totalExecutionTime)}`,
+                        'Export Results'
+                    );
+                    
+                    if (action === 'Export Results') {
+                        const { ExportUtils } = require('../core/exportUtils');
+                        await ExportUtils.exportData(results, `neo4j_query_${Date.now()}`);
+                    }
                 } catch (error: any) {
                     vscode.window.showErrorMessage(`Cypher execution failed: ${error.message}`);
                 }
@@ -2462,6 +2619,22 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 exportData.push(exported);
             }
 
+            // Get groups and metadata
+            const groups = this.connectionManager.getGroups();
+            const metadata: any[] = [];
+            
+            connections.forEach(conn => {
+                const meta = this.connectionManager.getMetadata(conn.id);
+                if (meta) {
+                    metadata.push({
+                        connectionId: meta.connectionId,
+                        isFavorite: meta.isFavorite,
+                        groupId: meta.groupId,
+                        notes: meta.notes
+                    });
+                }
+            });
+
             // Show save dialog
             const uri = await vscode.window.showSaveDialog({
                 defaultUri: vscode.Uri.file('db-connections.json'),
@@ -2475,13 +2648,17 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             // Write to file
             const fs = require('fs');
             fs.writeFileSync(uri.fsPath, JSON.stringify({
-                version: '1.0',
+                version: '2.0',
                 exportDate: new Date().toISOString(),
                 passwordsIncluded: shouldIncludePasswords,
-                connections: exportData
+                connections: exportData,
+                groups: groups,
+                metadata: metadata
             }, null, 2));
 
-            vscode.window.showInformationMessage(`Exported ${connections.length} connection(s) to ${uri.fsPath}`);
+            vscode.window.showInformationMessage(
+                `Exported ${connections.length} connection(s), ${groups.length} group(s) to ${uri.fsPath}`
+            );
         } catch (error: any) {
             vscode.window.showErrorMessage(`Export failed: ${error.message}`);
         }
@@ -2513,9 +2690,40 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             }
 
             const importedConnections = importData.connections;
+            const importedGroups = importData.groups || [];
+            const importedMetadata = importData.metadata || [];
+            const fileVersion = importData.version || '1.0';
+            
             let importedCount = 0;
             let skippedCount = 0;
+            let groupsImported = 0;
             const errors: string[] = [];
+            const connectionIdMapping = new Map<string, string>(); // oldId -> newId
+
+            // Import groups first
+            if (importedGroups.length > 0) {
+                for (const group of importedGroups) {
+                    try {
+                        const existingGroups = this.connectionManager.getGroups();
+                        const exists = existingGroups.find(g => g.name === group.name);
+                        
+                        if (exists) {
+                            // Update existing group
+                            connectionIdMapping.set(group.id, exists.id);
+                        } else {
+                            // Create new group (without connections yet)
+                            const newGroup = await this.connectionManager.createGroup(
+                                group.name,
+                                group.description
+                            );
+                            connectionIdMapping.set(group.id, newGroup.id);
+                            groupsImported++;
+                        }
+                    } catch (error: any) {
+                        errors.push(`Group ${group.name}: ${error.message}`);
+                    }
+                }
+            }
 
             // Import each connection
             for (const conn of importedConnections) {
@@ -2523,6 +2731,8 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                     // Check if connection with same name already exists
                     const existingConnections = await this.connectionManager.getConnections();
                     const exists = existingConnections.find(c => c.name === conn.name);
+
+                    let newConnectionId = conn.id;
 
                     if (exists) {
                         const overwrite = await vscode.window.showQuickPick(
@@ -2532,16 +2742,23 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
 
                         if (overwrite !== 'Overwrite') {
                             skippedCount++;
+                            connectionIdMapping.set(conn.id, exists.id);
                             continue;
                         }
 
                         // Delete existing connection
                         await this.connectionManager.deleteConnection(exists.id);
+                        newConnectionId = exists.id; // Keep the same ID
+                    } else {
+                        // Generate new ID if not exists
+                        newConnectionId = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                     }
+
+                    connectionIdMapping.set(conn.id, newConnectionId);
 
                     // Prepare connection config
                     const newConfig: any = {
-                        id: conn.id || `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        id: newConnectionId,
                         name: conn.name,
                         type: conn.type,
                         host: conn.host,
@@ -2575,11 +2792,44 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 }
             }
 
+            // Import metadata (favorites and group assignments)
+            if (importedMetadata.length > 0 && fileVersion === '2.0') {
+                for (const meta of importedMetadata) {
+                    try {
+                        const newConnectionId = connectionIdMapping.get(meta.connectionId);
+                        if (!newConnectionId) {
+                            continue; // Connection was skipped
+                        }
+
+                        // Set favorite status
+                        if (meta.isFavorite) {
+                            const currentMeta = this.connectionManager.getMetadata(newConnectionId);
+                            if (!currentMeta?.isFavorite) {
+                                await this.connectionManager.toggleFavorite(newConnectionId);
+                            }
+                        }
+
+                        // Assign to group
+                        if (meta.groupId) {
+                            const newGroupId = connectionIdMapping.get(meta.groupId);
+                            if (newGroupId) {
+                                await this.connectionManager.addConnectionToGroup(newConnectionId, newGroupId);
+                            }
+                        }
+                    } catch (error: any) {
+                        // Silently skip metadata errors
+                    }
+                }
+            }
+
             // Refresh the tree view
             this.refresh();
 
             // Show summary
             let message = `Imported ${importedCount} connection(s)`;
+            if (groupsImported > 0) {
+                message += `, ${groupsImported} group(s)`;
+            }
             if (skippedCount > 0) {
                 message += `, skipped ${skippedCount}`;
             }

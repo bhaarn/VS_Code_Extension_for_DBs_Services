@@ -4,7 +4,7 @@
   "description": "Secure connection manager for databases (PostgreSQL, MySQL, SQLite, MongoDB, Neo4J, MariaDB) and services (Redis, BullMQ, Elasticsearch, SSH, Docker, SFTP, Kafka, RabbitMQ)",
   "version": "1.1.0",
   "publisher": "your-publisher-name",
-  "author": "Your Name",
+  "author": "Bharani Dharan Krishnaswamy",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -289,9 +289,129 @@
         "icon": "$(edit)"
       },
       {
+        "command": "dbServices.exportQueryResult",
+        "title": "Export Result",
+        "icon": "$(export)"
+      },
+      {
+        "command": "dbServices.exportHistoryResult",
+        "title": "Export Result",
+        "icon": "$(export)"
+      },
+      {
+        "command": "dbServices.exportSavedQueryResult",
+        "title": "Export Result",
+        "icon": "$(export)"
+      },
+      {
         "command": "dbServices.deleteQueryFolder",
         "title": "Delete Folder",
         "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.createGroup",
+        "title": "Create Group",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "dbServices.renameGroup",
+        "title": "Rename Group",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "dbServices.deleteGroup",
+        "title": "Delete Group",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.addToGroup",
+        "title": "Add to Group",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "dbServices.removeFromGroup",
+        "title": "Remove from Group",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "dbServices.toggleFavorite",
+        "title": "Toggle Favorite",
+        "icon": "$(star)"
+      },
+      {
+        "command": "dbServices.startContainer",
+        "title": "Start Container",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.stopContainer",
+        "title": "Stop Container",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "dbServices.restartContainer",
+        "title": "Restart Container",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "dbServices.removeContainer",
+        "title": "Remove Container",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.viewContainerLogs",
+        "title": "View Logs",
+        "icon": "$(output)"
+      },
+      {
+        "command": "dbServices.inspectContainer",
+        "title": "Inspect Container",
+        "icon": "$(search)"
+      },
+      {
+        "command": "dbServices.removeImage",
+        "title": "Remove Image",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.inspectImage",
+        "title": "Inspect Image",
+        "icon": "$(search)"
+      },
+      {
+        "command": "dbServices.removeVolume",
+        "title": "Remove Volume",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.inspectVolume",
+        "title": "Inspect Volume",
+        "icon": "$(search)"
+      },
+      {
+        "command": "dbServices.removeNetwork",
+        "title": "Remove Network",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.inspectNetwork",
+        "title": "Inspect Network",
+        "icon": "$(search)"
+      },
+      {
+        "command": "dbServices.createTemplate",
+        "title": "Create Query Template",
+        "icon": "$(symbol-snippet)"
+      },
+      {
+        "command": "dbServices.executeTemplate",
+        "title": "Execute Template",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.insertSnippet",
+        "title": "Insert Query Snippet",
+        "icon": "$(add)"
       }
     ],
     "menus": {
@@ -330,6 +450,21 @@
           "command": "dbServices.createQueryFolder",
           "when": "view == savedQueriesExplorer",
           "group": "navigation"
+        },
+        {
+          "command": "dbServices.createTemplate",
+          "when": "view == savedQueriesExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "dbServices.insertSnippet",
+          "when": "view == savedQueriesExplorer",
+          "group": "1_snippets"
+        },
+        {
+          "command": "dbServices.createGroup",
+          "when": "view == dbServicesExplorer",
+          "group": "1_groups"
         }
       ],
       "view/item/context": [
@@ -337,6 +472,11 @@
           "command": "dbServices.executeSavedQuery",
           "when": "view == savedQueriesExplorer && viewItem == savedQuery",
           "group": "inline"
+        },
+        {
+          "command": "dbServices.executeTemplate",
+          "when": "view == savedQueriesExplorer && viewItem == savedQuery",
+          "group": "1_template"
         },
         {
           "command": "dbServices.editSavedQuery",
@@ -391,6 +531,31 @@
         {
           "command": "dbServices.deleteConnection",
           "when": "view == dbServicesExplorer && viewItem == connection",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.toggleFavorite",
+          "when": "view == dbServicesExplorer && viewItem == connection",
+          "group": "1_favorites"
+        },
+        {
+          "command": "dbServices.addToGroup",
+          "when": "view == dbServicesExplorer && viewItem == connection",
+          "group": "2_groups"
+        },
+        {
+          "command": "dbServices.removeFromGroup",
+          "when": "view == dbServicesExplorer && viewItem == connection",
+          "group": "2_groups"
+        },
+        {
+          "command": "dbServices.renameGroup",
+          "when": "view == dbServicesExplorer && viewItem == group",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.deleteGroup",
+          "when": "view == dbServicesExplorer && viewItem == group",
           "group": "inline"
         },
         {
@@ -514,6 +679,66 @@
           "group": "ssh@1"
         },
         {
+          "command": "dbServices.startContainer",
+          "when": "view == dbServicesExplorer && viewItem == container",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.stopContainer",
+          "when": "view == dbServicesExplorer && viewItem == container",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.restartContainer",
+          "when": "view == dbServicesExplorer && viewItem == container",
+          "group": "docker@1"
+        },
+        {
+          "command": "dbServices.viewContainerLogs",
+          "when": "view == dbServicesExplorer && viewItem == container",
+          "group": "docker@2"
+        },
+        {
+          "command": "dbServices.inspectContainer",
+          "when": "view == dbServicesExplorer && viewItem == container",
+          "group": "docker@3"
+        },
+        {
+          "command": "dbServices.removeContainer",
+          "when": "view == dbServicesExplorer && viewItem == container",
+          "group": "docker@4"
+        },
+        {
+          "command": "dbServices.inspectImage",
+          "when": "view == dbServicesExplorer && viewItem == image",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.removeImage",
+          "when": "view == dbServicesExplorer && viewItem == image",
+          "group": "docker@1"
+        },
+        {
+          "command": "dbServices.inspectVolume",
+          "when": "view == dbServicesExplorer && viewItem == volume",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.removeVolume",
+          "when": "view == dbServicesExplorer && viewItem == volume",
+          "group": "docker@1"
+        },
+        {
+          "command": "dbServices.inspectNetwork",
+          "when": "view == dbServicesExplorer && viewItem == network",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.removeNetwork",
+          "when": "view == dbServicesExplorer && viewItem == network",
+          "group": "docker@1"
+        },
+        {
           "command": "dbServices.runDockerCommand",
           "when": "view == dbServicesExplorer && viewItem == category-docker",
           "group": "docker@1"
@@ -569,6 +794,7 @@
     "redis": "^4.6.11",
     "sqlite3": "^5.1.6",
     "ssh2": "^1.15.0",
-    "ssh2-sftp-client": "^10.0.3"
+    "ssh2-sftp-client": "^10.0.3",
+    "xlsx": "^0.18.5"
   }
 }

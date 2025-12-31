@@ -9,7 +9,12 @@
 - [Query Management](#query-management)
   - [Query History](#query-history)
   - [Saved Queries](#saved-queries)
+  - [Query Templates and Snippets](#query-templates-and-snippets)
+  - [Query Result Export](#query-result-export)
   - [Export & Import Connections](#export--import-connections)
+- [Connection Organization](#connection-organization)
+  - [Groups](#groups)
+  - [Favorites](#favorites)
 - [Usage Examples](#usage-examples)
 - [Security](#security)
 - [Troubleshooting](#troubleshooting)
@@ -751,6 +756,252 @@ Backup and restore your connection configurations for portability and backup.
 - Do not commit exports with passwords to version control
 - Use password manager for team password sharing
 - Exported files without passwords are safe to share
+
+---
+
+### Query Templates and Snippets
+
+Accelerate query development with reusable templates and snippets.
+
+**Features:**
+- 📝 **10 Pre-built Templates**: Common query patterns for Users, Orders, Products, Analytics, etc.
+- 🎯 **Custom Templates**: Create your own reusable query patterns
+- 🔄 **Variable Placeholders**: Use `{{placeholder}}` syntax for dynamic values
+- 🗄️ **Database Context**: Templates automatically include USE statements or database commands
+- 💡 **15 VS Code Snippets**: Quick insertion of common patterns
+- 🔌 **Connection-Aware**: Templates remember which database they're for
+
+**How to Create a Template:**
+
+1. Open Command Palette (Ctrl/Cmd+Shift+P)
+2. Type "Create Query Template"
+3. Select a base template or "Custom Template"
+4. Select a connection (recommended for SQL databases)
+5. Enter database name if not configured in connection
+6. Enter template name and description
+7. Choose folder (optional)
+
+**Pre-built Templates:**
+
+| Template | Description | Placeholders |
+|----------|-------------|--------------|
+| Users Query | Find users by criteria | `{{field}}`, `{{value}}` |
+| Orders Query | Query orders with filters | `{{field}}`, `{{value}}` |
+| Products Query | Search products | `{{field}}`, `{{value}}` |
+| Analytics | Aggregate data with grouping | `{{table}}`, `{{field}}`, `{{date}}` |
+| Join Query | Join multiple tables | `{{table1}}`, `{{table2}}`, `{{field}}` |
+| Insert | Insert new records | `{{table}}`, `{{columns}}`, `{{values}}` |
+| Update | Update existing records | `{{table}}`, `{{field}}`, `{{value}}`, `{{condition}}` |
+| Delete | Delete with conditions | `{{table}}`, `{{condition}}` |
+| MongoDB Find | MongoDB collection query | `{{collection}}`, `{{field}}`, `{{value}}` |
+| MongoDB Aggregate | Aggregation pipeline | `{{collection}}`, `{{field}}` |
+
+**Example Template with Placeholders:**
+
+```sql
+use myDatabase;
+SELECT * FROM {{table}}
+WHERE {{field}} = '{{value}}'
+ORDER BY created_at DESC
+LIMIT {{limit}};
+```
+
+**Executing a Template:**
+
+1. Open "Saved Queries" panel
+2. Find your template (marked with template icon)
+3. Click to execute
+4. Fill in placeholder values when prompted:
+   - `table` → "users"
+   - `field` → "status"
+   - `value` → "active"
+   - `limit` → "10"
+5. Review generated query
+6. Choose "Execute", "Edit", or "Cancel"
+
+**VS Code Snippets:**
+
+Type these prefixes in any SQL/MongoDB file and press Tab:
+
+| Snippet | Description |
+|---------|-------------|
+| `sel` | SELECT statement |
+| `ins` | INSERT statement |
+| `upd` | UPDATE statement |
+| `del` | DELETE statement |
+| `join` | INNER JOIN |
+| `leftjoin` | LEFT JOIN |
+| `where` | WHERE clause |
+| `orderby` | ORDER BY clause |
+| `groupby` | GROUP BY clause |
+| `mongofind` | MongoDB find query |
+| `mongoagg` | MongoDB aggregate pipeline |
+| `mongoupdate` | MongoDB update operation |
+| `mongoinsert` | MongoDB insertOne |
+| `mongodelete` | MongoDB deleteMany |
+| `case` | SQL CASE statement |
+
+**MongoDB Template Example:**
+
+```javascript
+use portal;
+db.{{collection}}.find({ "{{field}}": "{{value}}" })
+```
+
+When executed with `collection=permissions`, `field=user`, `value=admin`:
+
+```javascript
+use portal;
+db.permissions.find({ "user": "admin" })
+```
+
+---
+
+### Query Result Export
+
+Export query results to multiple formats for analysis or sharing.
+
+**Supported Formats:**
+- 📄 **CSV**: Comma-separated values with proper escaping
+- 📋 **JSON**: Formatted JSON with indentation
+- 📊 **Excel**: XLSX format with formatted columns
+
+**How to Export:**
+
+1. **From Query Execution:**
+   - Execute any query
+   - In the result view, click **"Export Results"**
+   - Choose format (CSV, JSON, or Excel)
+   - Select save location
+
+2. **From Query History:**
+   - Open "Query History" panel
+   - Right-click on any executed query
+   - Select **"Export Results"**
+   - Choose format and location
+
+**Export Features:**
+- ✅ Handles large result sets efficiently
+- ✅ Proper CSV escaping for commas and quotes
+- ✅ Excel formatting with column headers
+- ✅ UTF-8 encoding for international characters
+- ✅ Buffer-based Excel writing for memory efficiency
+
+**Example CSV Export:**
+```csv
+id,name,email,created_at
+1,"John Doe","john@example.com","2025-01-15"
+2,"Jane Smith","jane@example.com","2025-02-20"
+```
+
+**Example JSON Export:**
+```json
+[
+  {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com",
+    "created_at": "2025-01-15"
+  },
+  {
+    "id": 2,
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "created_at": "2025-02-20"
+  }
+]
+```
+
+**Use Cases:**
+- 📊 Import results into spreadsheet tools
+- 📈 Create reports and visualizations
+- 🔄 Share query results with non-technical stakeholders
+- 💾 Archive query snapshots
+- 📧 Email query results as attachments
+
+---
+
+## Connection Organization
+
+### Groups
+
+Organize connections into logical groups for better management.
+
+**Features:**
+- 📁 **Create Groups**: Categorize connections (e.g., Production, Development, Testing)
+- 🔄 **Multi-Assignment**: Add connections to multiple groups
+- 🗂️ **Tree Organization**: Groups appear in tree view with connections nested inside
+- 📤 **Export/Import**: Groups included in connection export (v2.0)
+
+**How to Use Groups:**
+
+1. **Create a Group:**
+   - Right-click in Connections Explorer
+   - Select **"Create Group"**
+   - Enter group name (e.g., "Production", "Development")
+
+2. **Add Connection to Group:**
+   - Right-click on a connection
+   - Select **"Add to Group"**
+   - Choose the group from the list
+
+3. **Remove from Group:**
+   - Right-click on a connection within a group
+   - Select **"Remove from Group"**
+
+4. **Delete a Group:**
+   - Right-click on a group
+   - Select **"Delete Group"**
+   - Connections are not deleted, only the grouping
+
+**Tree View Organization:**
+```
+⭐ Favorites
+  └── Production MySQL
+📁 Production
+  ├── Production MySQL
+  ├── Production MongoDB
+  └── Production Redis
+📁 Development
+  ├── Local PostgreSQL
+  └── Local MongoDB
+📁 Connections
+  └── Staging Database
+```
+
+### Favorites
+
+Mark frequently used connections for quick access.
+
+**Features:**
+- ⭐ **Star Icon**: Visual indicator for favorite connections
+- 🔝 **Top Position**: Favorites appear at the top of the tree
+- 🚀 **Quick Access**: No scrolling through long connection lists
+- 💾 **Persistent**: Favorites saved across sessions
+- 📤 **Export/Import**: Favorites included in export
+
+**How to Use Favorites:**
+
+1. **Mark as Favorite:**
+   - Right-click on any connection
+   - Select **"Toggle Favorite"** (or click star icon)
+   - Connection moves to Favorites section
+
+2. **Remove from Favorites:**
+   - Right-click on the connection
+   - Select **"Toggle Favorite"** again
+   - Connection returns to regular position
+
+3. **Favorites Section:**
+   - Always visible at the top of tree view
+   - Contains all starred connections
+   - Connections still appear in their groups
+
+**Benefits:**
+- ⚡ Instant access to most-used connections
+- 🎯 Focus on current work without distraction
+- 🔄 Easy switching between active projects
+- 👥 Personal workflow optimization
 
 ---
 

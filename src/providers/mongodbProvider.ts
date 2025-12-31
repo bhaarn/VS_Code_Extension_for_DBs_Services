@@ -85,19 +85,27 @@ export class MongoDBProvider extends BaseConnectionProvider {
             const isScriptQuery = !query;
             const scriptOrQuery = isScriptQuery ? targetOrQuery : query!;
 
-            // Clean script by removing comments
+            // Extract database from 'use dbname;' command
+            let dbName: string | undefined;
+            const useMatch = scriptOrQuery.match(/use\s+(\w+)\s*;/i);
+            if (useMatch) {
+                dbName = useMatch[1];
+            }
+
+            // Also check for comment format "// Database: dbname" as fallback
+            if (!dbName) {
+                const dbMatch = scriptOrQuery.match(/\/\/\s*Database:\s*(\w+)/i);
+                if (dbMatch) {
+                    dbName = dbMatch[1];
+                }
+            }
+
+            // Clean script by removing comments and 'use' commands
             const cleanScript = scriptOrQuery
                 .split('\n')
-                .filter(line => !line.trim().startsWith('//'))
+                .filter(line => !line.trim().startsWith('//') && !line.trim().match(/^use\s+\w+\s*;/i))
                 .join('\n')
                 .trim();
-
-            // Extract database from query if specified in format "// Database: dbname"
-            let dbName: string | undefined;
-            const dbMatch = scriptOrQuery.match(/\/\/\s*Database:\s*(\w+)/i);
-            if (dbMatch) {
-                dbName = dbMatch[1];
-            }
 
             const db = dbName ? client.db(dbName) : client.db();
 
