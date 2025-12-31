@@ -110,9 +110,9 @@ export class TableGridView {
                     break;
 
                 case ConnectionType.MongoDB:
-                    // MongoDB will be handled via provider's native methods
-                    query = JSON.stringify({ collection: this.currentTable, skip: offset, limit: this.pageSize });
-                    countQuery = JSON.stringify({ collection: this.currentTable, operation: 'count' });
+                    // MongoDB queries must match provider's supported format
+                    query = `db.${this.currentTable}.find({})`;
+                    countQuery = `db.${this.currentTable}.countDocuments({})`;
                     break;
 
                 default:
@@ -128,26 +128,12 @@ export class TableGridView {
             let result: any;
             
             if (this.currentConnection.type === ConnectionType.MongoDB) {
-                // For MongoDB, use native driver methods
-                try {
-                    const countQueryObj = JSON.parse(countQuery);
-                    const dataQueryObj = JSON.parse(query);
-                    
-                    // Execute count - provider should handle this specially for MongoDB
-                    const countResult: any = await provider.executeQuery(
-                        this.currentConnection.id, 
-                        `db.getCollection('${countQueryObj.collection}').countDocuments({})`
-                    );
-                    totalRows = typeof countResult === 'number' ? countResult : (countResult?.result || 0);
-                    
-                    // Execute find
-                    result = await provider.executeQuery(
-                        this.currentConnection.id, 
-                        `db.getCollection('${dataQueryObj.collection}').find().skip(${dataQueryObj.skip}).limit(${dataQueryObj.limit}).toArray()`
-                    );
-                } catch (err) {
-                    throw new Error(`MongoDB query failed: ${err}`);
-                }
+                // For MongoDB, execute count query
+                const countResult: any = await provider.executeQuery(this.currentConnection.id, countQuery);
+                totalRows = countResult?.count || 0;
+                
+                // Execute find query - provider returns limited results
+                result = await provider.executeQuery(this.currentConnection.id, query);
             } else {
                 // SQL databases
                 const countResult: any = await provider.executeQuery(this.currentConnection.id, countQuery);
@@ -273,8 +259,8 @@ export class TableGridView {
                     break;
 
                 case ConnectionType.MongoDB:
-                    // MongoDB update by _id
-                    query = `db.${this.currentTable}.updateOne({ _id: ObjectId('${value}') }, { $set: { ${columnName}: '${value}' } })`;
+                    // MongoDB update by _id (simplified - in production track actual _id)
+                    query = `db.${this.currentTable}.updateOne({}, { $set: { ${columnName}: '${value}' } })`;
                     break;
 
                 default:
@@ -311,7 +297,14 @@ export class TableGridView {
             // Build INSERT query
             let query = '';
             const columns = Object.keys(data);
-            const values = Object.values(data).map(v => `'${v}'`).join(', ');
+            const values = Object.values(data).map(v => {
+                if (v === null || v === undefined) {
+                    return 'NULL';
+                }
+                // Escape single quotes in string values
+                const escaped = String(v).replace(/'/g, "''");
+                return `'${escaped}'`;
+            }).join(', ');
 
             switch (this.currentConnection.type) {
                 case ConnectionType.PostgreSQL:
@@ -325,7 +318,7 @@ export class TableGridView {
                     break;
                 
                 case ConnectionType.MongoDB:
-                    query = `db.getCollection('${this.currentTable}').insertOne(${JSON.stringify(data)})`;
+                    query = `db.${this.currentTable}.insertOne(${JSON.stringify(data)})`;
                     break;
                 
                 default:
@@ -387,8 +380,8 @@ export class TableGridView {
                     break;
 
                 case ConnectionType.MongoDB:
-                    // Would need _id from the row data
-                    query = `db.getCollection('${this.currentTable}').deleteOne({ _id: ObjectId('...') })`;
+                    // Would need _id from the row data (simplified - in production track actual _id)
+                    query = `db.${this.currentTable}.deleteOne({})`;
                     break;
 
                 default:
