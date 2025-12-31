@@ -3,17 +3,17 @@
   "displayName": "Database & Services Manager",
   "description": "Secure connection manager for databases (PostgreSQL, MySQL, SQLite, MongoDB, Neo4J, MariaDB) and services (Redis, BullMQ, Elasticsearch, SSH, Docker, SFTP, Kafka, RabbitMQ)",
   "version": "1.1.0",
-  "publisher": "padhuga",
+  "publisher": "bhaarn",
   "author": "Bharani Dharan Krishnaswamy",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/db-services-manager"
+    "url": "https://github.com/bhaarn/db-services-manager"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/db-services-manager/issues"
+    "url": "https://github.com/bhaarn/db-services-manager/issues"
   },
-  "homepage": "https://github.com/yourusername/db-services-manager#readme",
+  "homepage": "https://github.com/bhaarn/db-services-manager#readme",
   "keywords": [
     "database",
     "postgresql",
