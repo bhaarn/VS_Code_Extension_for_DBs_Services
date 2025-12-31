@@ -1382,18 +1382,21 @@ Contributions are welcome! Please:
 - ✅ Saved queries with folder organization
 - ✅ Export/Import connections
 - ✅ Query execution timing
+- ✅ Query result export (CSV, JSON, Excel)
+- ✅ Connection groups and favorites
+- ✅ Query templates and snippets (10 pre-built + 15 VS Code snippets)
+- ✅ Advanced Docker operations (start/stop/restart/remove containers/images/volumes/networks)
 
 ### Planned Features
 - [ ] Table data grid view with inline editing
-- [ ] Advanced Docker operations (start/stop/restart containers)
 - [ ] RabbitMQ Management API integration
 - [ ] SSH tunneling for databases
 - [ ] Direct file editing for FTP/SFTP
-- [ ] Query result export (CSV, JSON, Excel)
-- [ ] Connection groups and favorites
-- [ ] Query templates and snippets
 - [ ] Database schema comparison
 - [ ] Automatic query formatting
+- [ ] Multi-connection query execution
+- [ ] Query performance profiling and optimization suggestions
+- [ ] Connection health monitoring and alerts
 
 ---
 
