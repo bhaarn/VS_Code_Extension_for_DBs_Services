@@ -37,8 +37,11 @@ A comprehensive VS Code extension for managing connections to multiple databases
 ### 🚀 **Key Capabilities**
 
 - **Interactive Tree View**: Expandable categories showing databases, tables, collections, queues, containers, and more
-- **Script Execution**: Run SQL, MongoDB Playground, Cypher, and Redis commands
+- **Script Execution**: Run SQL, MongoDB Playground, Cypher, and Redis commands with execution timing
 - **CRUD Operations**: Insert, update, delete data across all supported databases
+- **Query History**: Automatic tracking of last 100 queries with re-run capability
+- **Saved Queries**: Personal query library with folder organization
+- **Export/Import**: Backup and restore connections with optional password encryption
 - **File Transfer**: Upload/download files and directories via FTP/SFTP
 - **Neo4J Visualization**: Interactive graph visualization using vis-network
 - **Docker Management**: List and inspect containers, images, volumes, and networks

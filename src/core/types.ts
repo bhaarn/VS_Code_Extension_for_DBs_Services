@@ -43,3 +43,34 @@ export interface ConnectionStatus {
     lastConnected?: Date;
     error?: string;
 }
+
+export interface QueryHistoryEntry {
+    id: string;
+    connectionId: string;
+    connectionName: string;
+    query: string;
+    timestamp: string;
+    executionTime?: number;
+    success: boolean;
+    error?: string;
+}
+
+export interface SavedQuery {
+    id: string;
+    name: string;
+    description?: string;
+    query: string;
+    connectionId?: string;
+    connectionType?: ConnectionType;
+    folderId?: string;
+    createdAt: string;
+    updatedAt: string;
+    tags?: string[];
+}
+
+export interface SavedQueryFolder {
+    id: string;
+    name: string;
+    parentId?: string;
+    createdAt: string;
+}

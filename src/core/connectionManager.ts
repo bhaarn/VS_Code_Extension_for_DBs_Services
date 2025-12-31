@@ -317,4 +317,26 @@ export class ConnectionManager {
                 // Username/password are optional for local development databases
         }
     }
+
+    /**
+     * Get password for a connection (for export purposes)
+     */
+    async getPassword(connectionId: string): Promise<string | undefined> {
+        const credentials = await this.secretManager.getCredentials(connectionId);
+        if (!credentials) {
+            return undefined;
+        }
+        
+        // Return password property if it exists and is a string
+        if (typeof credentials.password === 'string') {
+            return credentials.password;
+        }
+        
+        // If credentials itself is a string (legacy format)
+        if (typeof credentials === 'string') {
+            return credentials;
+        }
+        
+        return undefined;
+    }
 }

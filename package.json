@@ -2,7 +2,7 @@
   "name": "db-services-manager",
   "displayName": "Database & Services Manager",
   "description": "Secure connection manager for databases (PostgreSQL, MySQL, SQLite, MongoDB, Neo4J, MariaDB) and services (Redis, BullMQ, Elasticsearch, SSH, Docker, SFTP, Kafka, RabbitMQ)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "your-publisher-name",
   "author": "Your Name",
   "license": "MIT",
@@ -61,6 +61,14 @@
         {
           "id": "dbServicesExplorer",
           "name": "Connections"
+        },
+        {
+          "id": "queryHistoryExplorer",
+          "name": "Query History"
+        },
+        {
+          "id": "savedQueriesExplorer",
+          "name": "Saved Queries"
         }
       ]
     },
@@ -214,6 +222,76 @@
         "command": "dbServices.runElasticsearchCommand",
         "title": "Run Elasticsearch Command",
         "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.exportConnections",
+        "title": "Export Connections",
+        "icon": "$(export)"
+      },
+      {
+        "command": "dbServices.importConnections",
+        "title": "Import Connections",
+        "icon": "$(import)"
+      },
+      {
+        "command": "dbServices.rerunQuery",
+        "title": "Re-run Query",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.clearQueryHistory",
+        "title": "Clear Query History",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.copyQueryFromHistory",
+        "title": "Copy Query",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "dbServices.deleteQueryFromHistory",
+        "title": "Delete Query",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.saveQuery",
+        "title": "Save Query",
+        "icon": "$(save)"
+      },
+      {
+        "command": "dbServices.createQueryFolder",
+        "title": "New Folder",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "dbServices.executeSavedQuery",
+        "title": "Execute Query",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dbServices.editSavedQuery",
+        "title": "Edit Query",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "dbServices.deleteSavedQuery",
+        "title": "Delete Query",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dbServices.copySavedQuery",
+        "title": "Copy Query",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "dbServices.renameSavedQuery",
+        "title": "Rename",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "dbServices.deleteQueryFolder",
+        "title": "Delete Folder",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -227,9 +305,79 @@
           "command": "dbServices.refreshConnections",
           "when": "view == dbServicesExplorer",
           "group": "navigation"
+        },
+        {
+          "command": "dbServices.exportConnections",
+          "when": "view == dbServicesExplorer",
+          "group": "1_export"
+        },
+        {
+          "command": "dbServices.importConnections",
+          "when": "view == dbServicesExplorer",
+          "group": "1_export"
+        },
+        {
+          "command": "dbServices.clearQueryHistory",
+          "when": "view == queryHistoryExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "dbServices.saveQuery",
+          "when": "view == savedQueriesExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "dbServices.createQueryFolder",
+          "when": "view == savedQueriesExplorer",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
+        {
+          "command": "dbServices.executeSavedQuery",
+          "when": "view == savedQueriesExplorer && viewItem == savedQuery",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.editSavedQuery",
+          "when": "view == savedQueriesExplorer && viewItem == savedQuery",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.deleteSavedQuery",
+          "when": "view == savedQueriesExplorer && viewItem == savedQuery",
+          "group": "1_modify"
+        },
+        {
+          "command": "dbServices.renameSavedQuery",
+          "when": "view == savedQueriesExplorer && viewItem == savedQuery",
+          "group": "1_modify"
+        },
+        {
+          "command": "dbServices.copySavedQuery",
+          "when": "view == savedQueriesExplorer && viewItem == savedQuery",
+          "group": "2_copy"
+        },
+        {
+          "command": "dbServices.deleteQueryFolder",
+          "when": "view == savedQueriesExplorer && viewItem == queryFolder",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.rerunQuery",
+          "when": "view == queryHistoryExplorer && viewItem == historyItem",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.copyQueryFromHistory",
+          "when": "view == queryHistoryExplorer && viewItem == historyItem",
+          "group": "inline"
+        },
+        {
+          "command": "dbServices.deleteQueryFromHistory",
+          "when": "view == queryHistoryExplorer && viewItem == historyItem",
+          "group": "inline"
+        },
         {
           "command": "dbServices.connect",
           "when": "view == dbServicesExplorer && viewItem == connection",

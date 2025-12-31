@@ -2,9 +2,43 @@ import * as vscode from 'vscode';
 import { ConnectionManager } from '../core/connectionManager';
 import { ConnectionConfig, ConnectionType } from '../core/types';
 
+/**
+ * Utility to execute query with timing
+ */
+async function executeQueryWithTiming<T>(
+    queryFn: () => Promise<T>,
+    queryText: string
+): Promise<{ result: T; executionTime: number }> {
+    const startTime = Date.now();
+    try {
+        const result = await queryFn();
+        const executionTime = Date.now() - startTime;
+        return { result, executionTime };
+    } catch (error) {
+        const executionTime = Date.now() - startTime;
+        throw error;
+    }
+}
+
+/**
+ * Format execution time for display
+ */
+function formatExecutionTime(ms: number): string {
+    if (ms < 1000) {
+        return `${ms}ms`;
+    } else if (ms < 60000) {
+        return `${(ms / 1000).toFixed(2)}s`;
+    } else {
+        const minutes = Math.floor(ms / 60000);
+        const seconds = ((ms % 60000) / 1000).toFixed(2);
+        return `${minutes}m ${seconds}s`;
+    }
+}
+
 export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ConnectionItem | undefined | null | void> = new vscode.EventEmitter<ConnectionItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<ConnectionItem | undefined | null | void> = this._onDidChangeTreeData.event;
+    public queryHistory?: any; // Set by extension.ts
 
     constructor(
         private context: vscode.ExtensionContext,
@@ -13,6 +47,23 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
+    }
+
+    private async logQueryToHistory(connectionId: string, query: string, executionTime: number, success: boolean, error?: string): Promise<void> {
+        if (this.queryHistory) {
+            const connections = await this.connectionManager.getConnections();
+            const connection = connections.find(c => c.id === connectionId);
+            const connectionName = connection ? connection.name : 'Unknown';
+            
+            await this.queryHistory.addToHistory(
+                connectionId,
+                connectionName,
+                query,
+                executionTime,
+                success,
+                error
+            );
+        }
     }
 
     getTreeItem(element: ConnectionItem): vscode.TreeItem {
@@ -99,7 +150,10 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             }
 
             // Execute the command to get the list
-            const result = await provider.executeQuery(categoryItem.config.id, command);
+            const { result } = await executeQueryWithTiming(
+                () => provider.executeQuery!(categoryItem.config.id, command),
+                command
+            );
 
             // Parse the result and create child items
             const children: ConnectionItem[] = [];
@@ -319,7 +373,10 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             }
 
             const path = directoryItem.label as string;
-            const result = await provider.executeQuery(directoryItem.config.id, `list ${path}`);
+            const { result } = await executeQueryWithTiming(
+                () => provider.executeQuery!(directoryItem.config.id, `list ${path}`),
+                `list ${path}`
+            );
             
             if (Array.isArray(result)) {
                 return result.map((item: any) => {
@@ -649,7 +706,8 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 throw new Error('Query execution not supported for this connection type');
             }
 
-            // Show progress
+            // Show progress and track execution time
+            const startTime = Date.now();
             const results = await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
                 title: `Querying ${item.label}...`,
@@ -669,6 +727,19 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 const labelText = typeof item.label === 'string' ? item.label : (item.label?.label || '');
                 return await provider.executeQuery!(item.config.id, labelText, query);
             });
+            const executionTime = Date.now() - startTime;
+            
+            // Build full query for history (with collection and database context for MongoDB)
+            const labelText = typeof item.label === 'string' ? item.label : (item.label?.label || '');
+            let fullQuery = query;
+            if (item.config.type === ConnectionType.MongoDB) {
+                // Include database context in the query for MongoDB
+                const dbComment = item.config.database ? `// Database: ${item.config.database}\n` : '';
+                fullQuery = `${dbComment}db.${labelText}.find(${query})`;
+            }
+            
+            // Log to query history
+            await this.logQueryToHistory(item.config.id, fullQuery, executionTime, true);
             
             // Show results in a new document
             const doc = await vscode.workspace.openTextDocument({
@@ -677,9 +748,17 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             });
             await vscode.window.showTextDocument(doc);
             
-            vscode.window.showInformationMessage(`Found ${Array.isArray(results) ? results.length : 0} documents`);
+            vscode.window.showInformationMessage(`Found ${Array.isArray(results) ? results.length : 0} documents in ${formatExecutionTime(executionTime)}`);
         } catch (error: any) {
             vscode.window.showErrorMessage(`Query failed: ${error.message}`);
+            // Log failed query to history
+            const labelText = typeof item.label === 'string' ? item.label : (item.label?.label || '');
+            let fullQuery = query;
+            if (item.config.type === ConnectionType.MongoDB) {
+                const dbComment = item.config.database ? `// Database: ${item.config.database}\n` : '';
+                fullQuery = `${dbComment}db.${labelText}.find(${query})`;
+            }
+            await this.logQueryToHistory(item.config.id, fullQuery, 0, false, error.message);
         }
     }
 
@@ -922,8 +1001,13 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                         if (client) {
                             const db = client.db(item.config.database);
                             
-                            // Parse and execute the script
+                            // Parse and execute the script with timing
+                            const startTime = Date.now();
                             const results = await this.executeMongoScript(db, script, (item.label as string) || '');
+                            const executionTime = Date.now() - startTime;
+                            
+                            // Log to query history
+                            await this.logQueryToHistory(item.config.id, script, executionTime, true);
                             
                             // Show results in a new document
                             const resultDoc = await vscode.workspace.openTextDocument({
@@ -932,11 +1016,13 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                             });
                             await vscode.window.showTextDocument(resultDoc, { viewColumn: vscode.ViewColumn.Beside });
                             
-                            vscode.window.showInformationMessage('Script executed successfully');
+                            vscode.window.showInformationMessage(`Script executed successfully in ${formatExecutionTime(executionTime)}`);
                         }
                     }
                 } catch (error: any) {
                     vscode.window.showErrorMessage(`Script execution failed: ${error.message}`);
+                    // Log failed query to history
+                    await this.logQueryToHistory(item.config.id, script, 0, false, error.message);
                 }
             } else {
                 // User clicked "Close" or dismissed the dialog
@@ -1125,12 +1211,29 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                     // Split by semicolon for multiple statements
                     const statements = script.split(';').filter(s => s.trim() && !s.trim().startsWith('--'));
                     const results = [];
+                    let totalExecutionTime = 0;
 
                     for (const statement of statements) {
                         const trimmedStatement = statement.trim();
                         if (trimmedStatement) {
-                            const result = await provider.executeQuery(item.config.id, trimmedStatement);
+                            const { result, executionTime } = await executeQueryWithTiming(
+                                () => provider.executeQuery!(item.config.id, trimmedStatement),
+                                trimmedStatement
+                            );
                             results.push(result);
+                            totalExecutionTime += executionTime;
+                            
+                            // Log to history with database context
+                            let queryToLog = trimmedStatement;
+                            if (dbName) {
+                                if ([ConnectionType.MySQL, ConnectionType.MariaDB].includes(item.config.type)) {
+                                    queryToLog = `USE \`${dbName}\`;\n${trimmedStatement}`;
+                                } else if (item.config.type === ConnectionType.PostgreSQL) {
+                                    // PostgreSQL connects to a specific database, but we can add a comment for clarity
+                                    queryToLog = `-- Database: ${dbName}\n${trimmedStatement}`;
+                                }
+                            }
+                            await this.logQueryToHistory(item.config.id, queryToLog, executionTime, true);
                         }
                     }
 
@@ -1140,7 +1243,7 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                     });
                     await vscode.window.showTextDocument(resultDoc, { viewColumn: vscode.ViewColumn.Beside });
                     
-                    vscode.window.showInformationMessage('SQL script executed successfully');
+                    vscode.window.showInformationMessage(`SQL script executed successfully in ${formatExecutionTime(totalExecutionTime)}`);
                 } catch (error: any) {
                     vscode.window.showErrorMessage(`SQL execution failed: ${error.message}`);
                 }
@@ -1190,16 +1293,24 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                         .filter(s => s.length > 0);
 
                     const results: any[] = [];
+                    let totalExecutionTime = 0;
                     
                     for (const statement of statements) {
-                        const result = await provider.executeQuery(item.config.id, statement);
+                        const { result, executionTime } = await executeQueryWithTiming(
+                            () => provider.executeQuery!(item.config.id, statement),
+                            statement
+                        );
                         results.push(...result);
+                        totalExecutionTime += executionTime;
+                        
+                        // Log to history
+                        await this.logQueryToHistory(item.config.id, statement, executionTime, true);
                     }
 
                     // Show graph visualization for Neo4j
                     this.showNeo4jGraphVisualization(results);
                     
-                    vscode.window.showInformationMessage(`Cypher script executed successfully (${statements.length} statement${statements.length > 1 ? 's' : ''})`);
+                    vscode.window.showInformationMessage(`Cypher script executed successfully (${statements.length} statement${statements.length > 1 ? 's' : ''}) in ${formatExecutionTime(totalExecutionTime)}`);
                 } catch (error: any) {
                     vscode.window.showErrorMessage(`Cypher execution failed: ${error.message}`);
                 }
@@ -1242,9 +1353,14 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                     // Clean and execute each command
                     const commands = script.split('\n').filter(line => line.trim() && !line.trim().startsWith('#'));
                     const results = [];
+                    let totalExecutionTime = 0;
 
                     for (const command of commands) {
-                        const result = await provider.executeQuery(item.config.id, command.trim());
+                        const { result, executionTime } = await executeQueryWithTiming(
+                            () => provider.executeQuery!(item.config.id, command.trim()),
+                            command.trim()
+                        );
+                        totalExecutionTime += executionTime;
                         results.push(result);
                     }
 
@@ -1254,7 +1370,7 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                     });
                     await vscode.window.showTextDocument(resultDoc, { viewColumn: vscode.ViewColumn.Beside });
                     
-                    vscode.window.showInformationMessage('Redis commands executed successfully');
+                    vscode.window.showInformationMessage(`Redis commands executed successfully in ${formatExecutionTime(totalExecutionTime)}`);
                 } catch (error: any) {
                     vscode.window.showErrorMessage(`Redis execution failed: ${error.message}`);
                 }
@@ -1264,7 +1380,7 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
         }
     }
 
-    private showNeo4jGraphVisualization(data: any[]): void {
+    public showNeo4jGraphVisualization(data: any[]): void {
         const panel = vscode.window.createWebviewPanel(
             'neo4jGraph',
             'Neo4j Graph Visualization',
@@ -1485,9 +1601,15 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             }
 
             const query = `INSERT INTO ${tableName} (${columnsInput}) VALUES (${valuesInput})`;
-            const result = await provider.executeQuery(item.config.id, query);
+            const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, query),
+                query
+            );
 
-            vscode.window.showInformationMessage(`Row inserted successfully: ${JSON.stringify(result)}`);
+            // Log to history
+            await this.logQueryToHistory(item.config.id, query, executionTime, true);
+
+            vscode.window.showInformationMessage(`Row inserted successfully in ${formatExecutionTime(executionTime)}: ${JSON.stringify(result)}`);
             this.refresh();
         } catch (error: any) {
             vscode.window.showErrorMessage(`Insert failed: ${error.message}`);
@@ -1523,9 +1645,15 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             }
 
             const query = `UPDATE ${tableName} SET ${setClause} WHERE ${whereClause}`;
-            const result = await provider.executeQuery(item.config.id, query);
+            const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, query),
+                query
+            );
 
-            vscode.window.showInformationMessage(`Rows updated successfully: ${JSON.stringify(result)}`);
+            // Log to history
+            await this.logQueryToHistory(item.config.id, query, executionTime, true);
+
+            vscode.window.showInformationMessage(`Rows updated successfully in ${formatExecutionTime(executionTime)}: ${JSON.stringify(result)}`);
             this.refresh();
         } catch (error: any) {
             vscode.window.showErrorMessage(`Update failed: ${error.message}`);
@@ -1562,9 +1690,15 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
             }
 
             const query = `DELETE FROM ${tableName} WHERE ${whereClause}`;
-            const result = await provider.executeQuery(item.config.id, query);
+            const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, query),
+                query
+            );
 
-            vscode.window.showInformationMessage(`Rows deleted successfully: ${JSON.stringify(result)}`);
+            // Log to history
+            await this.logQueryToHistory(item.config.id, query, executionTime, true);
+
+            vscode.window.showInformationMessage(`Rows deleted successfully in ${formatExecutionTime(executionTime)}: ${JSON.stringify(result)}`);
             this.refresh();
         } catch (error: any) {
             vscode.window.showErrorMessage(`Delete failed: ${error.message}`);
@@ -1595,8 +1729,11 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 path = inputPath;
             }
 
-        const result = await provider.executeQuery(item.config.id, `list ${path}`);
-            vscode.window.showInformationMessage('Directory listed successfully');
+        const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, `list ${path}`),
+                `list ${path}`
+            );
+            vscode.window.showInformationMessage(`Directory listed successfully in ${formatExecutionTime(executionTime)}`);
         } catch (error: any) {
             vscode.window.showErrorMessage(`FTP operation failed: ${error.message}`);
         }
@@ -1915,11 +2052,14 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 throw new Error('Provider not available');
             }
 
-            const result = await provider.executeQuery(item.config.id, command);
+            const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, command),
+                command
+            );
 
             // Show results in a new document
             const doc = await vscode.workspace.openTextDocument({
-                content: JSON.stringify(result, null, 2),
+                content: `Execution Time: ${formatExecutionTime(executionTime)}\n\n${JSON.stringify(result, null, 2)}`,
                 language: 'json'
             });
             await vscode.window.showTextDocument(doc);
@@ -1945,11 +2085,14 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 throw new Error('Provider not available');
             }
 
-            const result = await provider.executeQuery(item.config.id, command);
+            const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, command),
+                command
+            );
 
             // Show results in a new document
             const doc = await vscode.workspace.openTextDocument({
-                content: JSON.stringify(result, null, 2),
+                content: `Execution Time: ${formatExecutionTime(executionTime)}\n\n${JSON.stringify(result, null, 2)}`,
                 language: 'json'
             });
             await vscode.window.showTextDocument(doc);
@@ -1975,11 +2118,14 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 throw new Error('Provider not available');
             }
 
-            const result = await provider.executeQuery(item.config.id, command);
+            const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, command),
+                command
+            );
 
             // Show results in a new document
             const doc = await vscode.workspace.openTextDocument({
-                content: JSON.stringify(result, null, 2),
+                content: `Execution Time: ${formatExecutionTime(executionTime)}\n\n${JSON.stringify(result, null, 2)}`,
                 language: 'json'
             });
             await vscode.window.showTextDocument(doc);
@@ -2005,11 +2151,14 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 throw new Error('Provider not available');
             }
 
-            const result = await provider.executeQuery(item.config.id, command);
+            const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, command),
+                command
+            );
 
             // Show results in a new document
             const doc = await vscode.workspace.openTextDocument({
-                content: `Exit Code: ${result.exitCode}\n\nSTDOUT:\n${result.stdout}\n\nSTDERR:\n${result.stderr}`,
+                content: `Execution Time: ${formatExecutionTime(executionTime)}\n\nExit Code: ${result.exitCode}\n\nSTDOUT:\n${result.stdout}\n\nSTDERR:\n${result.stderr}`,
                 language: 'shellscript'
             });
             await vscode.window.showTextDocument(doc);
@@ -2035,11 +2184,14 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 throw new Error('Provider not available');
             }
 
-            const result = await provider.executeQuery(item.config.id, command);
+            const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, command),
+                command
+            );
 
             // Show results in a new document
             const doc = await vscode.workspace.openTextDocument({
-                content: JSON.stringify(result, null, 2),
+                content: `Execution Time: ${formatExecutionTime(executionTime)}\n\n${JSON.stringify(result, null, 2)}`,
                 language: 'json'
             });
             await vscode.window.showTextDocument(doc);
@@ -2065,11 +2217,14 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
                 throw new Error('Provider not available');
             }
 
-            const result = await provider.executeQuery(item.config.id, command);
+            const { result, executionTime } = await executeQueryWithTiming(
+                () => provider.executeQuery!(item.config.id, command),
+                command
+            );
 
             // Show results in a new document
             const doc = await vscode.workspace.openTextDocument({
-                content: JSON.stringify(result, null, 2),
+                content: `Execution Time: ${formatExecutionTime(executionTime)}\n\n${JSON.stringify(result, null, 2)}`,
                 language: 'json'
             });
             await vscode.window.showTextDocument(doc);
@@ -2255,6 +2410,188 @@ export class ConnectionExplorer implements vscode.TreeDataProvider<ConnectionIte
         };
 
         return portMap[type] || 0;
+    }
+
+    // Export Connections
+    async exportConnections(): Promise<void> {
+        try {
+            const connections = await this.connectionManager.getConnections();
+            
+            if (connections.length === 0) {
+                vscode.window.showInformationMessage('No connections to export');
+                return;
+            }
+
+            // Ask user whether to include passwords
+            const includePasswords = await vscode.window.showQuickPick(
+                ['Export without passwords (recommended)', 'Export with passwords (encrypted)'],
+                { placeHolder: 'Choose export option' }
+            );
+
+            if (!includePasswords) {
+                return;
+            }
+
+            const shouldIncludePasswords = includePasswords.includes('with passwords');
+
+            // Prepare export data
+            const exportData = [];
+            
+            for (const conn of connections) {
+                const exported: any = {
+                    id: conn.id,
+                    name: conn.name,
+                    type: conn.type,
+                    host: conn.host,
+                    port: conn.port,
+                    database: conn.database,
+                    username: conn.username
+                };
+
+                if (shouldIncludePasswords) {
+                    // Get password from secret storage
+                    const password = await this.connectionManager.getPassword(conn.id);
+                    if (password) {
+                        // Simple base64 encoding - not secure but better than plaintext
+                        exported.password = Buffer.from(password).toString('base64');
+                    }
+                } else {
+                    exported._passwordExcluded = true;
+                }
+
+                exportData.push(exported);
+            }
+
+            // Show save dialog
+            const uri = await vscode.window.showSaveDialog({
+                defaultUri: vscode.Uri.file('db-connections.json'),
+                filters: { 'JSON': ['json'] }
+            });
+
+            if (!uri) {
+                return;
+            }
+
+            // Write to file
+            const fs = require('fs');
+            fs.writeFileSync(uri.fsPath, JSON.stringify({
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                passwordsIncluded: shouldIncludePasswords,
+                connections: exportData
+            }, null, 2));
+
+            vscode.window.showInformationMessage(`Exported ${connections.length} connection(s) to ${uri.fsPath}`);
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Export failed: ${error.message}`);
+        }
+    }
+
+    // Import Connections
+    async importConnections(): Promise<void> {
+        try {
+            // Show open dialog
+            const uri = await vscode.window.showOpenDialog({
+                canSelectFiles: true,
+                canSelectFolders: false,
+                canSelectMany: false,
+                filters: { 'JSON': ['json'] },
+                openLabel: 'Select connections file'
+            });
+
+            if (!uri || uri.length === 0) {
+                return;
+            }
+
+            // Read file
+            const fs = require('fs');
+            const content = fs.readFileSync(uri[0].fsPath, 'utf-8');
+            const importData = JSON.parse(content);
+
+            if (!importData.connections || !Array.isArray(importData.connections)) {
+                throw new Error('Invalid import file format');
+            }
+
+            const importedConnections = importData.connections;
+            let importedCount = 0;
+            let skippedCount = 0;
+            const errors: string[] = [];
+
+            // Import each connection
+            for (const conn of importedConnections) {
+                try {
+                    // Check if connection with same name already exists
+                    const existingConnections = await this.connectionManager.getConnections();
+                    const exists = existingConnections.find(c => c.name === conn.name);
+
+                    if (exists) {
+                        const overwrite = await vscode.window.showQuickPick(
+                            ['Skip', 'Overwrite'],
+                            { placeHolder: `Connection "${conn.name}" already exists. What should I do?` }
+                        );
+
+                        if (overwrite !== 'Overwrite') {
+                            skippedCount++;
+                            continue;
+                        }
+
+                        // Delete existing connection
+                        await this.connectionManager.deleteConnection(exists.id);
+                    }
+
+                    // Prepare connection config
+                    const newConfig: any = {
+                        id: conn.id || `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        name: conn.name,
+                        type: conn.type,
+                        host: conn.host,
+                        port: conn.port,
+                        database: conn.database,
+                        username: conn.username
+                    };
+
+                    // Handle password
+                    let password = '';
+                    if (importData.passwordsIncluded && conn.password) {
+                        // Decode base64 password
+                        password = Buffer.from(conn.password, 'base64').toString('utf-8');
+                    } else if (conn._passwordExcluded) {
+                        // Prompt for password
+                        const enteredPassword = await vscode.window.showInputBox({
+                            prompt: `Enter password for connection "${conn.name}"`,
+                            password: true,
+                            placeHolder: 'Leave empty to skip'
+                        });
+                        if (enteredPassword) {
+                            password = enteredPassword;
+                        }
+                    }
+
+                    // Save connection with credentials object
+                    await this.connectionManager.addConnection(newConfig, { password });
+                    importedCount++;
+                } catch (error: any) {
+                    errors.push(`${conn.name}: ${error.message}`);
+                }
+            }
+
+            // Refresh the tree view
+            this.refresh();
+
+            // Show summary
+            let message = `Imported ${importedCount} connection(s)`;
+            if (skippedCount > 0) {
+                message += `, skipped ${skippedCount}`;
+            }
+            if (errors.length > 0) {
+                message += `\n\nErrors:\n${errors.join('\n')}`;
+                vscode.window.showWarningMessage(message);
+            } else {
+                vscode.window.showInformationMessage(message);
+            }
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Import failed: ${error.message}`);
+        }
     }
 }
 

@@ -72,26 +72,160 @@ export class MongoDBProvider extends BaseConnectionProvider {
         return dbs.databases.map((db: any) => db.name);
     }
 
-    async executeQuery(connectionId: string, collectionName: string, query: string): Promise<any> {
+    async executeQuery(connectionId: string, targetOrQuery: string, query?: string): Promise<any> {
         const client = this.getConnection(connectionId);
         if (!client) {
             throw new Error('No active connection');
         }
 
         try {
-            // Parse the query as JSON
-            const queryObj = JSON.parse(query);
-            
-            // Get the current database from the connection
-            // We need to store which database was selected
-            const db = client.db();
-            const collection = db.collection(collectionName);
-            
-            // Execute find query
-            const results = await collection.find(queryObj).limit(100).toArray();
-            return results;
+            // Determine if this is a collection-based query or a script query
+            // If query parameter exists, it's the old format: executeQuery(connectionId, collectionName, jsonQuery)
+            // If query parameter is missing, targetOrQuery contains the full script
+            const isScriptQuery = !query;
+            const scriptOrQuery = isScriptQuery ? targetOrQuery : query!;
+
+            // Clean script by removing comments
+            const cleanScript = scriptOrQuery
+                .split('\n')
+                .filter(line => !line.trim().startsWith('//'))
+                .join('\n')
+                .trim();
+
+            // Extract database from query if specified in format "// Database: dbname"
+            let dbName: string | undefined;
+            const dbMatch = scriptOrQuery.match(/\/\/\s*Database:\s*(\w+)/i);
+            if (dbMatch) {
+                dbName = dbMatch[1];
+            }
+
+            const db = dbName ? client.db(dbName) : client.db();
+
+            // Match db.collection.find(...)
+            const findMatch = cleanScript.match(/db\.(\w+)\.find\(([\s\S]*?)\)(?:\s*;?\s*$)/);
+            if (findMatch) {
+                const collectionName = findMatch[1];
+                const queryStr = findMatch[2].trim() || '{}';
+                const queryObj = eval(`(${queryStr})`);
+                const collection = db.collection(collectionName);
+                return await collection.find(queryObj).limit(100).toArray();
+            }
+
+            // Match db.collection.aggregate(...)
+            const aggMatch = cleanScript.match(/db\.(\w+)\.aggregate\(([\s\S]*?)\)(?:\s*;?\s*$)/);
+            if (aggMatch) {
+                const collectionName = aggMatch[1];
+                const pipelineStr = aggMatch[2].trim();
+                const pipeline = eval(`(${pipelineStr})`);
+                const collection = db.collection(collectionName);
+                return await collection.aggregate(pipeline).toArray();
+            }
+
+            // Match db.collection.insertMany(...)
+            const insertManyMatch = cleanScript.match(/db\.(\w+)\.insertMany\(([\s\S]*?)\)(?:\s*;?\s*$)/);
+            if (insertManyMatch) {
+                const collectionName = insertManyMatch[1];
+                const docsStr = insertManyMatch[2].trim();
+                const docs = eval(`(${docsStr})`);
+                const collection = db.collection(collectionName);
+                const result = await collection.insertMany(docs);
+                return { insertedCount: result.insertedCount, insertedIds: result.insertedIds };
+            }
+
+            // Match db.collection.insertOne(...)
+            const insertOneMatch = cleanScript.match(/db\.(\w+)\.insertOne\(([\s\S]*?)\)(?:\s*;?\s*$)/);
+            if (insertOneMatch) {
+                const collectionName = insertOneMatch[1];
+                const docStr = insertOneMatch[2].trim();
+                const doc = eval(`(${docStr})`);
+                const collection = db.collection(collectionName);
+                const result = await collection.insertOne(doc);
+                return { insertedId: result.insertedId };
+            }
+
+            // Match db.collection.updateOne(...)
+            const updateOneMatch = cleanScript.match(/db\.(\w+)\.updateOne\(([\s\S]*?)\)(?:\s*;?\s*$)/);
+            if (updateOneMatch) {
+                const collectionName = updateOneMatch[1];
+                const argsStr = updateOneMatch[2].trim();
+                const args = this.parseMongoArguments(argsStr);
+                if (args.length < 2) {
+                    throw new Error('updateOne requires filter and update parameters');
+                }
+                const filter = eval(`(${args[0]})`);
+                const update = eval(`(${args[1]})`);
+                const collection = db.collection(collectionName);
+                const result = await collection.updateOne(filter, update);
+                return { matchedCount: result.matchedCount, modifiedCount: result.modifiedCount };
+            }
+
+            // Match db.collection.deleteOne(...)
+            const deleteOneMatch = cleanScript.match(/db\.(\w+)\.deleteOne\(([\s\S]*?)\)(?:\s*;?\s*$)/);
+            if (deleteOneMatch) {
+                const collectionName = deleteOneMatch[1];
+                const filterStr = deleteOneMatch[2].trim();
+                const filter = eval(`(${filterStr})`);
+                const collection = db.collection(collectionName);
+                const result = await collection.deleteOne(filter);
+                return { deletedCount: result.deletedCount };
+            }
+
+            // Match db.collection.countDocuments(...)
+            const countMatch = cleanScript.match(/db\.(\w+)\.countDocuments\(([\s\S]*?)\)(?:\s*;?\s*$)/);
+            if (countMatch) {
+                const collectionName = countMatch[1];
+                const filterStr = countMatch[2].trim() || '{}';
+                const filter = eval(`(${filterStr})`);
+                const collection = db.collection(collectionName);
+                const count = await collection.countDocuments(filter);
+                return { count };
+            }
+
+            throw new Error('Unsupported MongoDB operation. Supported: find, aggregate, insertOne, insertMany, updateOne, deleteOne, countDocuments');
         } catch (error: any) {
             throw new Error(`Query execution failed: ${error.message}`);
         }
+    }
+
+    private parseMongoArguments(argsStr: string): string[] {
+        const args: string[] = [];
+        let currentArg = '';
+        let depth = 0;
+        let inString = false;
+        let stringChar = '';
+
+        for (let i = 0; i < argsStr.length; i++) {
+            const char = argsStr[i];
+            const prevChar = i > 0 ? argsStr[i - 1] : '';
+
+            if ((char === '"' || char === "'") && prevChar !== '\\') {
+                if (!inString) {
+                    inString = true;
+                    stringChar = char;
+                } else if (char === stringChar) {
+                    inString = false;
+                }
+            }
+
+            if (!inString) {
+                if (char === '{' || char === '[' || char === '(') {
+                    depth++;
+                } else if (char === '}' || char === ']' || char === ')') {
+                    depth--;
+                } else if (char === ',' && depth === 0) {
+                    args.push(currentArg.trim());
+                    currentArg = '';
+                    continue;
+                }
+            }
+
+            currentArg += char;
+        }
+
+        if (currentArg.trim()) {
+            args.push(currentArg.trim());
+        }
+
+        return args;
     }
 }

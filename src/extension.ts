@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { ConnectionExplorer } from './views/connectionExplorer';
+import { QueryHistory } from './views/queryHistory';
+import { SavedQueries } from './views/savedQueries';
 import { ConnectionManager } from './core/connectionManager';
 import { SecretManager } from './core/secretManager';
 
@@ -12,9 +14,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Initialize views
     const connectionExplorer = new ConnectionExplorer(context, connectionManager);
+    const queryHistory = new QueryHistory(context, connectionManager, connectionExplorer);
+    const savedQueries = new SavedQueries(context, connectionManager, connectionExplorer);
     
-    // Register tree view
+    // Register tree views
     vscode.window.registerTreeDataProvider('dbServicesExplorer', connectionExplorer);
+    vscode.window.registerTreeDataProvider('queryHistoryExplorer', queryHistory);
+    vscode.window.registerTreeDataProvider('savedQueriesExplorer', savedQueries);
+
+    // Pass queryHistory to connectionExplorer so it can log queries
+    (connectionExplorer as any).queryHistory = queryHistory;
 
     // Register commands
     context.subscriptions.push(
@@ -200,6 +209,92 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('dbServices.runElasticsearchCommand', async (item) => {
             await connectionExplorer.runElasticsearchCommand(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.exportConnections', async () => {
+            await connectionExplorer.exportConnections();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.importConnections', async () => {
+            await connectionExplorer.importConnections();
+        })
+    );
+
+    // Query History commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.rerunQuery', async (item) => {
+            await queryHistory.rerunQuery(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.clearQueryHistory', async () => {
+            await queryHistory.clearHistory();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.copyQueryFromHistory', async (item) => {
+            await queryHistory.copyQuery(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.deleteQueryFromHistory', async (item) => {
+            await queryHistory.deleteQuery(item);
+        })
+    );
+
+    // Saved Queries commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.saveQuery', async () => {
+            await savedQueries.saveQuery();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.createQueryFolder', async () => {
+            await savedQueries.createFolder();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.executeSavedQuery', async (item) => {
+            await savedQueries.executeQuery(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.editSavedQuery', async (item) => {
+            await savedQueries.editQuery(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.deleteSavedQuery', async (item) => {
+            await savedQueries.deleteQuery(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.copySavedQuery', async (item) => {
+            await savedQueries.copyQuery(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.renameSavedQuery', async (item) => {
+            await savedQueries.renameQuery(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dbServices.deleteQueryFolder', async (item) => {
+            await savedQueries.deleteFolder(item);
         })
     );
 }

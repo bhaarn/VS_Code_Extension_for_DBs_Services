@@ -2,7 +2,52 @@
 
 All notable changes to the "Database & Services Manager" extension will be documented in this file.
 
-## [1.0.0] - 2025-12-31
+## [1.1.0] - 2025-12-31
+
+### Added
+- **Query History**: Automatic tracking of last 100 executed queries with timestamps and execution times
+  - Re-run queries directly from history
+  - Delete individual queries
+  - Support for all database types (SQL, MongoDB, Neo4J, Redis)
+  - Persists across VS Code restarts
+- **Saved Queries**: Personal query library with folder organization
+  - Save frequently used queries with names and descriptions
+  - Organize queries in folders
+  - Execute saved queries against any compatible connection
+  - Edit and delete saved queries
+  - Folder deletion with "Delete All" or "Move to Root" options
+- **Export/Import Connections**: Backup and restore connection configurations
+  - Export with or without passwords
+  - Password encryption using Base64 encoding
+  - Import preserves all connection settings and credentials
+- **Query Execution Timing**: All queries display execution time
+  - Millisecond precision for quick queries
+  - Second formatting for longer operations
+  - Timing included in history and saved queries
+- **Database Context Persistence**: Queries automatically include database context
+  - MySQL/MariaDB: USE statements prepended
+  - PostgreSQL: Database comments added
+  - MongoDB: Database comments in queries
+  - Context preserved across sessions
+- **Neo4J Graph Visualization**: Enhanced visualization support
+  - Available from query history
+  - Available from saved queries
+  - Available from direct execution
+  - Interactive graph with vis-network
+
+### Fixed
+- MongoDB saved query execution with script format parsing
+- MongoDB query history logging for all execution methods
+- Export connections with passwords now properly encodes credentials
+- MySQL database context preservation in saved queries
+- Query history delete button now removes single items instead of clearing all
+- Folder deletion in saved queries properly handles nested queries
+- MySQL multi-statement query execution with USE statements
+- SQLite multi-statement queries return correct results (last statement)
+- Import connections with passwords properly stores credentials in SecretStorage
+- Database context prompt when connection doesn't specify database
+
+## [1.0.0] - 2025-12-30
 
 ### Initial Release
 

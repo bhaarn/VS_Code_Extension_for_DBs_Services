@@ -6,6 +6,10 @@
 - [Getting Started](#getting-started)
 - [Supported Services](#supported-services)
 - [Configuration](#configuration)
+- [Query Management](#query-management)
+  - [Query History](#query-history)
+  - [Saved Queries](#saved-queries)
+  - [Export & Import Connections](#export--import-connections)
 - [Usage Examples](#usage-examples)
 - [Security](#security)
 - [Troubleshooting](#troubleshooting)
@@ -511,6 +515,245 @@ Password: sftppassword
 
 ---
 
+## Query Management
+
+### Query History
+
+The extension automatically tracks all executed queries, providing a complete history of your database interactions.
+
+**Features:**
+- 📝 **Automatic Tracking**: Last 100 queries are saved automatically
+- ⏱️ **Execution Timing**: See how long each query took (milliseconds or seconds)
+- 🔄 **Re-run Queries**: Execute any historical query again with one click
+- 🗑️ **Delete Queries**: Remove individual queries from history
+- 💾 **Persistent**: History survives VS Code restarts
+- 🎯 **Database Context**: MySQL/MariaDB queries include USE statements, MongoDB includes database comments
+
+**How to Use:**
+
+1. **View Query History:**
+   - Open the "Query History" panel in the Activity Bar
+   - See list of recent queries with timestamps and execution times
+
+2. **Re-run a Query:**
+   - Click on any query in the history
+   - The query executes automatically against the same connection
+   - Results display in a new window
+   - Neo4J queries show graph visualization
+
+3. **Delete a Query:**
+   - Right-click on a query
+   - Select "Delete Query"
+   - Or click the trash icon next to the query
+
+**Query Format:**
+```
+✅ SELECT * FROM users                    (MySQL - 45ms)
+✅ db.users.find({ active: true })       (MongoDB - 120ms)
+✅ MATCH (n:Person) RETURN n             (Neo4J - 89ms)
+❌ SELECT * FROM invalid_table           (MySQL - Error: Table not found)
+```
+
+**Database Context:**
+- **MySQL/MariaDB**: Queries include `USE dbname;` statement
+- **PostgreSQL**: Queries include `-- Database: dbname` comment
+- **MongoDB**: Queries include `// Database: dbname` comment
+- **Neo4J/Redis/Others**: No special context needed
+
+---
+
+### Saved Queries
+
+Create a personal library of frequently used queries organized in folders.
+
+**Features:**
+- 📁 **Folder Organization**: Group related queries together
+- 📝 **Named Queries**: Give queries descriptive names and descriptions
+- 🔄 **Reusable**: Execute saved queries against any compatible connection
+- ✏️ **Editable**: Update query text, name, or description anytime
+- 🗑️ **Manageable**: Delete queries or entire folders
+- 💾 **Database Context**: Automatically includes USE/SET statements for SQL databases
+
+**How to Use:**
+
+1. **Save a Query:**
+   - Open Command Palette (Ctrl/Cmd+Shift+P)
+   - Type "Save Query"
+   - Enter query text (or select from active editor)
+   - Provide:
+     - **Name**: e.g., "Get Active Users"
+     - **Description**: e.g., "Retrieves all active users from database"
+     - **Folder**: Select existing or "(No folder)"
+     - **Connection**: Select connection type or "(Any connection)"
+   - For MySQL/MariaDB/PostgreSQL: Enter database name if not in connection config
+   - Query is saved with database context automatically
+
+2. **Create a Folder:**
+   - Click the "Create Folder" button in Saved Queries panel
+   - Enter folder name: e.g., "User Queries", "Reports", "Maintenance"
+
+3. **Execute a Saved Query:**
+   - Click on a saved query in the panel
+   - If query is tied to a specific connection, it runs immediately
+   - If query is generic, select which connection to use
+   - Results display in a new window
+   - Execution time is shown
+
+4. **Edit a Saved Query:**
+   - Right-click on the query
+   - Select "Edit Query"
+   - Modify name, description, or query text
+   - Changes are saved immediately
+
+5. **Delete a Query:**
+   - Right-click on the query
+   - Select "Delete Query"
+   - Confirm deletion
+
+6. **Delete a Folder:**
+   - Right-click on the folder
+   - Select "Delete Folder"
+   - Choose action:
+     - **Delete All**: Remove folder and all queries inside
+     - **Move to Root**: Delete folder but keep queries at root level
+     - **Cancel**: Keep everything
+
+**Example Saved Queries:**
+
+```sql
+-- Name: Get Active Users
+-- Description: Retrieves users with active status
+-- Connection: MySQL - Production DB
+USE mydb;
+SELECT * FROM users WHERE active = true ORDER BY created_at DESC;
+```
+
+```javascript
+// Name: Top Products
+// Description: Get top 10 selling products
+// Connection: MongoDB - E-commerce
+// Database: shop
+db.products.aggregate([
+  { $match: { status: "active" } },
+  { $sort: { sales: -1 } },
+  { $limit: 10 }
+])
+```
+
+```cypher
+// Name: User Network
+// Description: Visualize user connections
+// Connection: Neo4J - Social Graph
+MATCH (u:User)-[r:FOLLOWS]->(f:User)
+WHERE u.name = "John"
+RETURN u, r, f
+```
+
+**Database Context Handling:**
+- **MySQL/MariaDB**: `USE dbname;` prepended automatically
+- **PostgreSQL**: `-- Database: dbname` comment added
+- **MongoDB**: `// Database: dbname` comment added
+- **Queries without database**: Prompted to enter database name when saving
+- **Queries with existing context**: No duplicate context added
+
+---
+
+### Export & Import Connections
+
+Backup and restore your connection configurations for portability and backup.
+
+**Features:**
+- 💾 **Full Backup**: Export all connections at once
+- 🔒 **Password Options**: Export with or without passwords
+- 🔐 **Encryption**: Passwords encoded with Base64 for basic protection
+- 📤 **Portable**: Move connections between machines or VS Code instances
+- 📥 **Easy Restore**: Import connections with one command
+
+**How to Export:**
+
+1. Open Command Palette (Ctrl/Cmd+Shift+P)
+2. Type "Export Connections"
+3. Choose password option:
+   - **With Passwords**: Full backup including credentials (Base64 encoded)
+   - **Without Passwords**: Connection configs only, no passwords
+4. Choose save location
+5. File saved as `connections_export_YYYYMMDD_HHMMSS.json`
+
+**Export Format (with passwords):**
+```json
+{
+  "version": "1.1.0",
+  "exportDate": "2025-12-31T12:00:00.000Z",
+  "includePasswords": true,
+  "connections": [
+    {
+      "id": "conn_12345",
+      "name": "Production MySQL",
+      "type": "mysql",
+      "host": "mysql.example.com",
+      "port": 3306,
+      "database": "myapp",
+      "username": "admin",
+      "password": "bXlwYXNzd29yZA==" // Base64 encoded
+    }
+  ]
+}
+```
+
+**Export Format (without passwords):**
+```json
+{
+  "version": "1.1.0",
+  "exportDate": "2025-12-31T12:00:00.000Z",
+  "includePasswords": false,
+  "connections": [
+    {
+      "id": "conn_12345",
+      "name": "Production MySQL",
+      "type": "mysql",
+      "host": "mysql.example.com",
+      "port": 3306,
+      "database": "myapp",
+      "username": "admin"
+      // No password field
+    }
+  ]
+}
+```
+
+**How to Import:**
+
+1. Open Command Palette (Ctrl/Cmd+Shift+P)
+2. Type "Import Connections"
+3. Select the exported JSON file
+4. Connections are imported:
+   - **With passwords**: Credentials stored in SecretStorage automatically
+   - **Without passwords**: Use "Edit Connection" to add credentials after import
+5. Refresh the connection list to see imported connections
+
+**Import Behavior:**
+- ✅ Preserves all connection settings (host, port, database, etc.)
+- ✅ Stores passwords securely in VS Code SecretStorage
+- ✅ Handles duplicate names by keeping both
+- ✅ Works across different machines and VS Code installations
+- ⚠️ Existing connections are NOT overwritten
+
+**Use Cases:**
+
+1. **Backup**: Regularly export connections with passwords to secure location
+2. **Team Sharing**: Export without passwords, share configs with team, they add their own credentials
+3. **Migration**: Moving to new machine? Export from old, import to new
+4. **Testing**: Export production configs, modify for dev/staging
+5. **Disaster Recovery**: Keep exports as backups in case of VS Code issues
+
+**Security Notes:**
+- Passwords exported with Base64 encoding (NOT encryption)
+- Do not commit exports with passwords to version control
+- Use password manager for team password sharing
+- Exported files without passwords are safe to share
+
+---
+
 ## Usage Examples
 
 ### Database Operations
@@ -876,7 +1119,7 @@ Contributions are welcome! Please:
 
 ## Version History
 
-### Current Version
+### Current Version (1.1.0)
 - ✅ 15+ service providers
 - ✅ Secure credential storage
 - ✅ Tree view with expandable categories
@@ -884,17 +1127,22 @@ Contributions are welcome! Please:
 - ✅ File transfer for FTP/SFTP
 - ✅ Neo4J graph visualization
 - ✅ Docker and Elasticsearch support
+- ✅ Query history (last 100 queries)
+- ✅ Saved queries with folder organization
+- ✅ Export/Import connections
+- ✅ Query execution timing
 
 ### Planned Features
-- [ ] Export/Import connections
-- [ ] Query history
-- [ ] Saved queries/scripts
-- [ ] Query execution time
-- [ ] Table data grid view
-- [ ] Advanced Docker operations (start/stop containers)
+- [ ] Table data grid view with inline editing
+- [ ] Advanced Docker operations (start/stop/restart containers)
 - [ ] RabbitMQ Management API integration
 - [ ] SSH tunneling for databases
 - [ ] Direct file editing for FTP/SFTP
+- [ ] Query result export (CSV, JSON, Excel)
+- [ ] Connection groups and favorites
+- [ ] Query templates and snippets
+- [ ] Database schema comparison
+- [ ] Automatic query formatting
 
 ---
 
